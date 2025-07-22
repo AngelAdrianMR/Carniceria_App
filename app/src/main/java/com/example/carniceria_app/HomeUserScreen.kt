@@ -128,7 +128,6 @@ fun HomeUserScreen(navController: NavHostController, onLogout: () -> Unit) {
             direccionUsuario = direccionUsuario, // ← AÑADE ESTO
             onCerrar = { mostrarCarritoLateral = false },
             onReservar = {
-                // TODO: Acción al reservar
                 mostrarCarritoLateral = false
             }
         )
