@@ -1,10 +1,12 @@
 package com.carniceria.shared.shared.models.utils
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 @Serializable
 data class Product(
-    val id: Long,
+    val id: Long?= null,
     val created_at: String? = null,
     val nombre_producto: String,
     val descripcion_producto: String? = null,
@@ -13,21 +15,24 @@ data class Product(
     val precio_compra: Double? = null,
     val imagen_producto: String? = null,
     val precio_sin_iva: Double,
-    val beneficio: Double? = null,
+    @Transient val beneficio: Double = 0.0,
+    val unidad_medida: String?,
     val stock_producto: Int? = null,
-    val unidad_medida: String? // Enum: "Kilo" o "Unidad"
 )
 @Serializable
 data class Promocion(
-    val id: Long,
+    val id: Long?= null,
     val nombre_promocion: String,
     val descripcion_promocion: String?,
     val imagen_promocion: String?,
-    val precio_total: Double
+    val precio_total: Double,
+    @Transient val precio_compra_promo: Double = 0.0,
+    @Transient val beneficio_promo: Double = 0.0,
+    val estado: Boolean
 )
 @Serializable
 data class ProductoPromocion(
-    val id: Long,
+    val id: Long?= null,
     val promocion_id: Long,
     val producto_id: Long
 )
@@ -35,13 +40,4 @@ data class ProductoPromocion(
 data class PromocionConProductos(
     val promocion: Promocion,
     val productos: List<Product>
-)
-
-@Serializable
-data class PerfilUsuario(
-    val id: String,
-    val direccion: String,
-    val telefono: String,
-    val codigo_postal: String,
-    val rol: String
 )

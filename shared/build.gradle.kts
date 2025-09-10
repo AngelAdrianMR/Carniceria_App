@@ -1,38 +1,41 @@
-
 plugins {
-    kotlin("multiplatform")
+    id("org.jetbrains.kotlin.multiplatform")
     id("com.android.library")
-    kotlin("plugin.serialization") version "1.9.10"
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
+
 
 kotlin {
     androidTarget()
+
+    // Targets iOS
     iosX64()
     iosArm64()
     iosSimulatorArm64()
-    jvmToolchain(8)
+
+    // Nueva jerarquía → evita duplicados de iosMain
+    applyDefaultHierarchyTemplate()
+
+    jvmToolchain(17)
 
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation(kotlin("stdlib"))
-                implementation("io.ktor:ktor-client-core:2.3.2")
-                implementation("io.ktor:ktor-client-content-negotiation:2.3.2")
+                implementation("io.ktor:ktor-client-core:3.1.1")
+                implementation("io.ktor:ktor-client-content-negotiation:3.1.1")
+                implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.1")
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
-                implementation("io.ktor:ktor-client-core:2.3.4")
-                implementation("io.ktor:ktor-client-cio:2.3.4")
-                implementation("io.ktor:ktor-client-content-negotiation:2.3.4")
-                implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.4")
+                implementation("io.github.jan-tennert.supabase:postgrest-kt:3.1.1")
             }
         }
         val androidMain by getting {
             dependencies {
-                implementation("io.ktor:ktor-client-okhttp:2.3.2")
+                implementation("io.ktor:ktor-client-okhttp:3.1.1")
             }
         }
-        val iosMain by creating {
+        val iosMain by getting {
             dependencies {
-                implementation("io.ktor:ktor-client-darwin:2.3.2")
+                implementation("io.ktor:ktor-client-darwin:3.1.1")
             }
         }
     }
@@ -40,14 +43,12 @@ kotlin {
 
 android {
     namespace = "com.carniceria.shared.shared.models.utils"
-
     compileSdk = 35
     defaultConfig {
         minSdk = 24
     }
-
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 }

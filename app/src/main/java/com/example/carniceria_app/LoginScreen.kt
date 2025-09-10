@@ -4,15 +4,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.carniceria.shared.shared.models.utils.*
+import com.carniceria.shared.shared.models.utils.SupabaseProvider
 import kotlinx.coroutines.launch
 
+// Supabase v3
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.builtin.Email
 
 @Composable
 fun LoginScreen(
@@ -56,33 +58,35 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         if (errorMessage.isNotEmpty()) {
-            Text(errorMessage, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+            Text(
+                errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center
+            )
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        val context = LocalContext.current
+        Button(
+            onClick = {
+                errorMessage = ""
+                scope.launch {
+                    try {
+                        SupabaseProvider.client.auth.signInWith(Email) {
+                            this.email = email
+                            this.password = password
+                        }
 
-        Button(onClick = {
-            errorMessage = ""
+                        // 🔄 Actualizamos el ViewModel con el usuario actual
+                        authViewModel.cargarUsuario()
 
-            scope.launch {
-                val res = iniciarSesion(email, password)
-                val tokenManager = TokenManager(context)
-
-                if (res.access_token != null) {
-                    val user = obtenerUsuarioActual(res.access_token!!)
-                    if (user != null) {
-                        authViewModel.guardarToken(res.access_token!!)
-                        tokenManager.saveAccessToken(res.access_token!!)
                         onLoginSuccess()
-                    } else {
-                        errorMessage = "No se pudo obtener el usuario."
+                    } catch (e: Exception) {
+                        errorMessage = "Error al iniciar sesión: ${e.message}"
                     }
-                } else {
-                    errorMessage = "Credenciales incorrectas"
                 }
-            }
-        }) {
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Text("Entrar")
         }
 

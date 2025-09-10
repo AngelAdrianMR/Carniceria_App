@@ -13,10 +13,16 @@ import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.layout.ContentScale
+import com.carniceria.shared.shared.models.utils.Product
 import com.carniceria.shared.shared.models.utils.PromocionConProductos
 
 @Composable
-fun SliderPromociones(promociones: List<PromocionConProductos>) {
+fun SliderPromociones(
+    promociones: List<PromocionConProductos>,
+    onAddClick: (Product) -> Unit ,
+    onAddPromocion: (PromocionConProductos) -> Unit
+) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
@@ -30,7 +36,7 @@ fun SliderPromociones(promociones: List<PromocionConProductos>) {
             Card(
                 modifier = Modifier
                     .width(250.dp)
-                    .height(220.dp)
+                    .wrapContentHeight()
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     Image(
@@ -38,17 +44,28 @@ fun SliderPromociones(promociones: List<PromocionConProductos>) {
                         contentDescription = promo.nombre_promocion,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(100.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .wrapContentHeight()
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(promo.nombre_promocion, style = MaterialTheme.typography.titleMedium)
                     Text(promo.descripcion_promocion ?: "", style = MaterialTheme.typography.bodySmall)
                     Text("Total: ${promo.precio_total} €", style = MaterialTheme.typography.bodyMedium)
 
-                    promoConProductos.productos.forEach {
-                        Text("- ${it.nombre_producto}", style = MaterialTheme.typography.bodySmall)
+                    promoConProductos.productos.forEach { producto ->
+                        Text(
+                            "- ${producto.nombre_producto}",
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    BotonTransparenteNegro(
+                        onClick = { onAddPromocion(promoConProductos) },
+                        texto = "Añadir al carrito"
+                    )
                 }
             }
         }
