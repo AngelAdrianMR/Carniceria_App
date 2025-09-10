@@ -19,11 +19,23 @@
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Carniceria_App">
+            <!-- 1) Activity de arranque de la app -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- 2) Deep link personalizado -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="myapp"
+                    android:host="auth-callback"
+                    android:pathPrefix="/" />
+            </intent-filter>
+
         </activity>
     </application>
 

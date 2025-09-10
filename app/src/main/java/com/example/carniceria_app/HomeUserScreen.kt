@@ -1,15 +1,20 @@
 package com.example.carniceria_app
 
+import androidx.compose.ui.text.style.TextAlign
 import android.util.Log
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavHostController
 import com.carniceria.shared.shared.models.utils.*
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.lazy.rememberLazyListState
 import kotlinx.coroutines.launch
 
 
@@ -17,8 +22,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeUserScreen(navController: NavHostController, onLogout: () -> Unit) {
     val carritoViewModel: CarritoViewModel = viewModel()
-    val authViewModel: AuthViewModel = viewModel()
-    val carrito = carritoViewModel.carrito
 
     var mostrarCarritoLateral by remember { mutableStateOf(false) }
 
@@ -30,22 +33,20 @@ fun HomeUserScreen(navController: NavHostController, onLogout: () -> Unit) {
     var mostrarCantidadBottomSheet by remember { mutableStateOf(false) }
 
     var perfilUsuario by remember { mutableStateOf<PerfilUsuario?>(null) }
+
+    val listState = rememberLazyListState()
+
     val direccionUsuario = perfilUsuario?.direccion ?: ""
 
     val context = LocalContext.current
-    val tokenManager = remember { TokenManager(context) }
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         try {
             promociones = obtenerPromociones()
             productos = obtenerProductos()
-            carritoViewModel.inicializarStock(productos)
+            carritoViewModel.cargarCarritoLocal(context)
+            perfilUsuario = obtenerPerfilUsuarioActual()
 
-            val accessToken = authViewModel.accessToken.value
-            if (accessToken != null) {
-                perfilUsuario = obtenerPerfilUsuarioActual(accessToken)
-            }
 
 
         } catch (e: Exception) {
@@ -58,46 +59,72 @@ fun HomeUserScreen(navController: NavHostController, onLogout: () -> Unit) {
         productos.filter { it.categoria_producto == categoriaSeleccionada }
     } ?: productos
 
-    Column {
-        UserHeader(
-            title = "Carnicería",
-            onNavigationToPerfil = { navController.navigate("perfilUser") },
-            onNavigationToFacture = { navController.navigate("facturasUser") },
-            onNavigationToProduct = { navController.navigate("productosUser") },
-            onAbrirCarrito = { mostrarCarritoLateral = true } // 👈 Aquí lo añadimos
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = {
-                scope.launch {
-                    tokenManager.logout()
-                    onLogout()
-                }
-            },
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text("Cerrar sesión")
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        state = listState,
+        contentPadding = PaddingValues(bottom = 24.dp)
+    ) {
+        item {
+            UserHeader(
+                title = "Inicio",
+                current = null,
+                onNavigateHome = { /* ya estás en Home */ },
+                onNavigationToPerfil = { navController.navigate("perfilUser") },
+                onNavigationToFacture = { navController.navigate("facturasUser") },
+                onNavigationToProduct = { navController.navigate("productosUser") },
+                onAbrirCarrito = { mostrarCarritoLateral = true }
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = "Promociones destacadas",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(4.dp))
         }
 
-        if (promociones.isNotEmpty()) {
-            SliderPromociones(promociones = promociones)
-        } else {
-            Text("Cargando promociones...", modifier = Modifier.padding(16.dp))
+        // Slider horizontal (como ya lo tienes en SliderPromociones con LazyRow)
+        item {
+            if (promociones.isNotEmpty()) {
+                SliderPromociones(
+                    promociones = promociones,
+                    onAddClick = { productoSeleccionado = it; mostrarCantidadBottomSheet = true },
+                    onAddPromocion = { promoConProductos ->
+                        carritoViewModel.agregarPromocionAlCarrito(promoConProductos, context)
+                    }
+                )
+            } else {
+                Text("Cargando promociones...", modifier = Modifier.padding(16.dp))
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Nuestros Productos Destacados",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(6.dp))
+            FiltroCategorias(categorias) { categoriaSeleccionada = it }
+            Spacer(Modifier.height(8.dp))
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        FiltroCategorias(categorias) {
-            categoriaSeleccionada = it
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        GridProductos(productosFiltrados) {
-            productoSeleccionado = it
-            mostrarCantidadBottomSheet = true
+        // Grid con su propio scroll vertical: dale altura finita
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // Usa una altura relativa a la ventana del Lazy (evita hardcodear dp)
+                    .fillParentMaxHeight(0.9f)  // puedes ajustar 0.7f..1f según te guste
+            ) {
+                GridProductos(
+                    productos = productosFiltrados,
+                    onAddClick = {
+                        productoSeleccionado = it
+                        mostrarCantidadBottomSheet = true
+                    }
+                )
+            }
         }
     }
 
@@ -123,14 +150,36 @@ fun HomeUserScreen(navController: NavHostController, onLogout: () -> Unit) {
 
     // Carrito lateral
     if (mostrarCarritoLateral) {
+        val scope = rememberCoroutineScope()
+
         CarritoLateral(
             carrito = carritoViewModel.carrito,
-            direccionUsuario = direccionUsuario, // ← AÑADE ESTO
+            direccionUsuario = direccionUsuario,
             onCerrar = { mostrarCarritoLateral = false },
+
+            // 🚚 Pedir a domicilio
             onReservar = {
                 mostrarCarritoLateral = false
+                // aquí irá la lógica de envío
+            },
+
+            // 🏪 Recoger en tienda
+            onRecoger = {
+                mostrarCarritoLateral = false
+                scope.launch {
+                    carritoViewModel.confirmarRecogidaEnTienda(context)
+                }
+            },
+
+            onEliminarItem = { item ->
+                item.producto.id?.let { id ->
+                    carritoViewModel.eliminarProducto(id, context)
+                }
             }
+            ,
+            modifier = Modifier.zIndex(1f)
         )
+
     }
 
 }

@@ -12,12 +12,10 @@ import kotlinx.serialization.Serializable
 import java.text.Normalizer
 import java.util.Locale
 
-val httpClient = HttpClient()
-
 @Serializable
 data class NominatimResponseItem(
     @SerialName("display_name") val displayName: String,
-    val address: Address
+    val address: Address?  = null
 )
 
 @Serializable
@@ -37,7 +35,11 @@ val costeEnvio = 3.50 // puedes cambiar este valor cuando quieras
 
 val client = HttpClient(CIO) {
     install(ContentNegotiation) {
-        json()
+        json(
+            kotlinx.serialization.json.Json {
+                ignoreUnknownKeys = true
+            }
+        )
     }
 }
 
@@ -45,14 +47,14 @@ val client = HttpClient(CIO) {
 suspend fun obtenerCiudadDesdeDireccion(direccion: String): String? {
     val url = "https://nominatim.openstreetmap.org/search"
 
-    val response: List<NominatimResponseItem> = httpClient.get(url) {
+    val response: List<NominatimResponseItem> = client.get(url) {
         parameter("q", direccion)
         parameter("format", "json")
         header(HttpHeaders.UserAgent, "carniceria-app") // Obligatorio para Nominatim
     }.body()
 
-    return response.firstOrNull()?.let {
-        it.address.city ?: it.address.town ?: it.address.village
+    return response.firstOrNull()?.address?.let {
+        it.city ?: it.town ?: it.village
     }
 }
 

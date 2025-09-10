@@ -1,6 +1,5 @@
 package com.example.carniceria_app
 
-import android.util.Log
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
@@ -14,6 +13,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.carniceria.shared.shared.models.utils.*
 import kotlinx.coroutines.launch
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.Google
+import io.github.jan.supabase.auth.providers.builtin.Email
+
+
 
 @Composable
 fun RegisterScreen(
@@ -88,30 +92,32 @@ fun RegisterScreen(
                         else -> {
                             scope.launch {
                                 try {
-                                    val res = registrarUsuario(email, password)
+                                    // Registro en Supabase Auth
+                                    val result = SupabaseProvider.client.auth.signUpWith(
+                                        Email,
+                                        redirectUrl = "myapp://auth-callback"
+                                    ) {
+                                        this.email = email
+                                        this.password = password
+                                    }
 
-                                    val token = res.access_token
+                                    val userId = result?.id
 
-                                    if (token != null) {
-                                        val user = obtenerUsuarioActual(token)
-                                        if (user != null) {
-                                            val ok = guardarPerfilUsuario(
-                                                userId = user.id,
-                                                accessToken = token,
-                                                direccion = address,
-                                                telefono = phone,
-                                                codigo_postal = postalCode
-                                            )
-                                            if (ok) {
-                                                onRegisterSuccess()
-                                            } else {
-                                                error = "Error al guardar perfil"
-                                            }
+                                    if (!userId.isNullOrBlank()) {
+                                        val ok = guardarPerfilUsuario(
+                                            userId = userId,
+                                            direccion = address,
+                                            telefono = phone,
+                                            codigo_postal = postalCode,
+                                            rol = "Cliente"
+                                        )
+                                        if (ok) {
+                                            onRegisterSuccess()
                                         } else {
-                                            error = "No se pudo obtener el usuario"
+                                            error = "Error al guardar perfil"
                                         }
                                     } else {
-                                        error = "Error al registrar: ${res.error ?: "Desconocido"}"
+                                        error = "No se pudo obtener el usuario tras registro"
                                     }
 
                                     if (error.isNotEmpty()) {
@@ -134,7 +140,19 @@ fun RegisterScreen(
             }
 
             Button(
-                onClick = onGoogleSignInClick,
+                onClick = {
+                    scope.launch {
+                        try {
+                            SupabaseProvider.client.auth.signInWith(
+                                Google,
+                                redirectUrl = "myapp://auth-callback"
+                            )
+                        } catch (e: Exception) {
+                            error = "Error en Google Sign-In: ${e.localizedMessage}"
+                            Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+                        }
+                    }
+                },
                 modifier = Modifier
                     .weight(1f)
                     .padding(start = 6.dp)
@@ -153,3 +171,4 @@ fun RegisterScreen(
         }
     }
 }
+
