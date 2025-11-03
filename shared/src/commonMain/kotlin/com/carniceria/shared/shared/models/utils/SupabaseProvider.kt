@@ -1,8 +1,14 @@
 package com.carniceria.shared.shared.models.utils
 
+import io.github.jan.supabase.annotations.SupabaseInternal
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.functions.Functions
+import io.github.jan.supabase.storage.Storage
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 
 
 object SupabaseEnv {
@@ -11,12 +17,26 @@ object SupabaseEnv {
 }
 
 object SupabaseProvider {
+
+    @OptIn(SupabaseInternal::class)
     val client by lazy {
         createSupabaseClient(
             supabaseUrl = SupabaseEnv.URL,
             supabaseKey = SupabaseEnv.ANON_KEY
-        ) { install(Auth)
+        ) {
+            // ✅ Configuración global del cliente HTTP
+            httpConfig {
+                defaultRequest {
+                    contentType(ContentType.Application.Json)
+                    headers.append("Accept-Charset", "UTF-8")
+                }
+            }
+
+            // ✅ Plugins instalados
+            install(Auth)
             install(Postgrest)
+            install(Storage)
+            install(Functions)
         }
     }
 }

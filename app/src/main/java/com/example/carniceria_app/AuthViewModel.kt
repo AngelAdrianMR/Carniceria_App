@@ -10,7 +10,6 @@ import io.github.jan.supabase.auth.auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _usuario = MutableStateFlow<SupabaseUserInfo?>(null)
@@ -41,4 +40,6 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             _usuario.value = null
         }
     }
+
+
 }

@@ -1,16 +1,13 @@
 package com.example.carniceria_app
 
 import android.util.Log
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -20,13 +17,11 @@ import com.carniceria.shared.shared.models.utils.*
 import androidx.compose.ui.zIndex
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.ui.Alignment
-import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProductosUserScreen(navController: NavHostController) {
+fun ProductosUserScreen(navController: NavHostController, onLogout: () -> Unit) {
     var productos by remember { mutableStateOf<List<Product>>(emptyList()) }
     var categoriaSeleccionada by remember { mutableStateOf<String?>(null) }
     var productoSeleccionado by remember { mutableStateOf<Product?>(null) }
@@ -36,11 +31,12 @@ fun ProductosUserScreen(navController: NavHostController) {
     val context = LocalContext.current
 
     var perfilUsuario by remember { mutableStateOf<PerfilUsuario?>(null) }
-    val direccionUsuario = perfilUsuario?.direccion ?: ""
+    val direccionUsuario by remember { mutableStateOf<PerfilUsuario?>(null) }
 
     // Cargar productos
     LaunchedEffect(Unit) {
         try {
+            perfilUsuario = obtenerPerfilUsuarioActual()
             productos = obtenerProductos()
             carritoViewModel.cargarCarritoLocal(context)
         } catch (e: Exception) {
@@ -63,18 +59,20 @@ fun ProductosUserScreen(navController: NavHostController) {
 
         // 🔹 Cabecera
         UserHeader(
-            title = "Productos",
-            current = HeaderTab.Productos,
-            onNavigateHome = {
-                navController.navigate("homeUserScreen") {
-                    popUpTo("homeUserScreen") { inclusive = false }
-                    launchSingleTop = true
-                }
-            },
+            navController = navController,
+            titulo = "Productos",
+            onNavigateHome = { navController.navigate("homeUserScreen") },
             onNavigationToPerfil = { navController.navigate("perfilUser") },
-            onNavigationToProduct = { /* ya estás en productos */ },
-            onNavigationToFacture = { navController.navigate("facturas") },
-            onAbrirCarrito = { mostrarCarritoLateral = true }
+            onNavigationToProductos = { navController.navigate("productosUser") },
+            onNavigationToPedidos = { navController.navigate("pedidosYFacturas") },
+            onNavigationToConfiguracion = { navController.navigate("configuracionScreen") },
+            onNavigationToSobreNosotros = { navController.navigate("sobreNosotrosScreen") },
+            onLogout = onLogout,
+            mostrarCarrito = false,
+            mostrarBotonEditar = false,
+            onEditarPerfil = {
+                navController.navigate("editarPerfilScreen")
+            }
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -110,6 +108,11 @@ fun ProductosUserScreen(navController: NavHostController) {
             onAddClick = {
                 productoSeleccionado = it
                 mostrarCantidadBottomSheet = true
+            },
+            onProductoClick = { producto ->   // 👈 nuevo callback
+                producto.id?.let { id ->
+                    navController.navigate("productoDetalle/$id")
+                }
             }
         )
     }
@@ -134,31 +137,23 @@ fun ProductosUserScreen(navController: NavHostController) {
         }
     }
 
-    // 🔹 Carrito lateral
+    // Carrito lateral
     if (mostrarCarritoLateral) {
-        val scope = rememberCoroutineScope()
-
-        CarritoLateral(
-            carrito = carritoViewModel.carrito,
-            direccionUsuario = direccionUsuario,
-            onCerrar = { mostrarCarritoLateral = false },
-            onReservar = {
-                // 🚚 Lógica para pedir a domicilio
-                mostrarCarritoLateral = false
-            },
-            onRecoger = {
-                mostrarCarritoLateral = false
-                scope.launch {
-                    carritoViewModel.confirmarRecogidaEnTienda(context)
-                }
-            },
-            onEliminarItem = { item ->
-                item.producto.id?.let { id ->
-                    carritoViewModel.eliminarProducto(id, context)
-                }
-            },
-            modifier = Modifier.zIndex(1f)
-        )
-
+        perfilUsuario?.let { perfil ->
+            CarritoLateral(
+                carrito = carritoViewModel.carrito,
+                direccionUsuario = perfil.direccionCompleta,
+                usuarioId = perfil.id ,                 // 👈 UUID (String)
+                carritoViewModel = carritoViewModel,   // 👈 pasamos el VM
+                codigoPostalUsuario = perfil.codigo_postal,
+                onCerrar = { mostrarCarritoLateral = false },
+                onEliminarItem = { item ->
+                    item.producto?.id?.let { id ->
+                        carritoViewModel.eliminarProducto(item, context)
+                    }
+                },
+                modifier = Modifier.zIndex(1f)
+            )
+        }
     }
 }

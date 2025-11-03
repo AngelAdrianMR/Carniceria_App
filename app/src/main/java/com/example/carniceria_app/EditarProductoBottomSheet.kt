@@ -1,19 +1,25 @@
 package com.example.carniceria_app
 
+import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.carniceria.shared.shared.models.utils.Product
-import androidx.compose.ui.text.input.KeyboardType
 import com.carniceria.shared.shared.models.utils.actualizarProducto
 import com.carniceria.shared.shared.models.utils.obtenerCategoriasProducto
 import com.carniceria.shared.shared.models.utils.obtenerUnidadesMedida
 import kotlinx.coroutines.launch
-
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +41,19 @@ fun EditarProductoBottomSheet(
     var listaUnidades by remember { mutableStateOf<List<String>>(emptyList()) }
 
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val scrollState = rememberScrollState()
+
+    // 🚩 Picker de imagen
+    var imagenUri by remember { mutableStateOf<Uri?>(null) }
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            imagenUri = uri
+            imagen = uri.toString()
+        }
+    }
 
     LaunchedEffect(Unit) {
         try {
@@ -45,15 +64,15 @@ fun EditarProductoBottomSheet(
         }
     }
 
-
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         modifier = Modifier.fillMaxHeight(0.95f)
     ) {
         Column(
             modifier = Modifier
-                .padding(16.dp)
-                .fillMaxSize(),
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text("Editar Producto", style = MaterialTheme.typography.titleLarge)
@@ -95,12 +114,23 @@ fun EditarProductoBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
-                value = imagen,
-                onValueChange = { imagen = it },
-                label = { Text("URL imagen") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            // 🚩 URL o imagen
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = imagen,
+                    onValueChange = { imagen = it },
+                    label = { Text("URL o ruta de imagen") },
+                    modifier = Modifier.weight(1f)
+                )
+
+                BotonTransparenteNegro(
+                    onClick = { launcher.launch("image/*") },
+                    texto = "Galería"
+                )
+            }
 
             SelectorDesplegable(
                 label = "Unidad de medida",
@@ -117,42 +147,53 @@ fun EditarProductoBottomSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
+            // ✅ Botones fijos al final (ahora visibles con scroll)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Button(onClick = {
-                    val productoEditado = producto.copy(
-                        nombre_producto = nombre,
-                        descripcion_producto = descripcion,
-                        categoria_producto = categoriaSeleccionada,
-                        precio_venta = precioVenta.toDoubleOrNull() ?: producto.precio_venta,
-                        precio_compra = precioCompra.toDoubleOrNull(),
-                        imagen_producto = imagen,
-                        unidad_medida = unidadSeleccionada,
-                        stock_producto = stock.toIntOrNull()
-                    )
+                BotonTransparenteNegro(
+                    onClick = {
+                        scope.launch {
+                            try {
+                                val imagenFinal = if (imagen.startsWith("content://")) {
+                                    subirImagenProducto(context, imagen.toUri()) ?: producto.imagen_producto
+                                } else {
+                                    imagen.takeIf { it.startsWith("http") } ?: producto.imagen_producto
+                                }
 
-                    // Guardar en Supabase
-                    scope.launch {
-                        val ok = actualizarProducto(productoEditado)
-                        if (ok) {
-                            onGuardar(productoEditado) // actualiza lista local
-                            onDismiss()
-                        } else {
-                            Log.e("EditarProducto", "❌ Error al actualizar en Supabase")
+                                val productoEditado = producto.copy(
+                                    nombre_producto = nombre,
+                                    descripcion_producto = descripcion,
+                                    categoria_producto = categoriaSeleccionada,
+                                    precio_venta = precioVenta.toDoubleOrNull() ?: producto.precio_venta,
+                                    precio_compra = precioCompra.toDoubleOrNull(),
+                                    imagen_producto = imagenFinal,
+                                    unidad_medida = unidadSeleccionada,
+                                    stock_producto = stock.toDoubleOrNull()
+                                )
+
+                                val ok = actualizarProducto(productoEditado)
+                                if (ok) {
+                                    onGuardar(productoEditado)
+                                    onDismiss()
+                                } else {
+                                    Log.e("EditarProducto", "❌ Error al actualizar en Supabase")
+                                }
+                            } catch (e: Exception) {
+                                Log.e("EditarProducto", "Error al actualizar", e)
+                            }
                         }
-                    }
-                }) {
-                    Text("Guardar")
-                }
+                    },
+                    texto = "Guardar"
+                )
 
-
-                OutlinedButton(onClick = onDismiss) {
-                    Text("Cancelar")
-                }
+                BotonTransparenteNegro(
+                    onClick = onDismiss,
+                    texto = "Cancelar"
+                )
             }
         }
     }

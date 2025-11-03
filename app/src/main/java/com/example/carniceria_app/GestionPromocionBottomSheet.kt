@@ -1,19 +1,23 @@
 package com.example.carniceria_app
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
 import com.carniceria.shared.shared.models.utils.*
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,6 +29,7 @@ fun GestionPromocionBottomSheet(
 ) {
     var nombre by remember { mutableStateOf(promocionInicial?.promocion?.nombre_promocion ?: "") }
     var descripcion by remember { mutableStateOf(promocionInicial?.promocion?.descripcion_promocion ?: "") }
+    var imagenUri by remember { mutableStateOf<Uri?>(null) }
     var imagenUrl by remember { mutableStateOf(promocionInicial?.promocion?.imagen_promocion ?: "") }
     var precio by remember { mutableStateOf(promocionInicial?.promocion?.precio_total?.toString() ?: "") }
 
@@ -37,6 +42,15 @@ fun GestionPromocionBottomSheet(
     }
 
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // 🖼️ Selector de imagen desde galería
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        imagenUri = uri
+        imagenUrl = uri?.toString() ?: ""
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -47,16 +61,38 @@ fun GestionPromocionBottomSheet(
 
             OutlinedTextField(value = nombre, onValueChange = { nombre = it }, label = { Text("Nombre") })
             OutlinedTextField(value = descripcion, onValueChange = { descripcion = it }, label = { Text("Descripción") })
-            OutlinedTextField(value = imagenUrl, onValueChange = { imagenUrl = it }, label = { Text("URL Imagen") })
+
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BotonTransparenteNegro(
+                    onClick = { launcher.launch("image/*") },
+                    texto = if (imagenUri == null && imagenUrl.isBlank()) "Seleccionar imagen" else "Cambiar imagen",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            if (imagenUrl.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Image(
+                    painter = rememberAsyncImagePainter(imagenUrl),
+                    contentDescription = "Vista previa",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp)
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
             OutlinedTextField(
                 value = precio,
                 onValueChange = { precio = it },
                 label = { Text("Precio Total") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Number)
             )
 
             Spacer(Modifier.height(8.dp))
-            Text("Productos:", style = MaterialTheme.typography.bodyMedium)
+            Text("Productos incluidos:", style = MaterialTheme.typography.bodyMedium)
             LazyColumn(modifier = Modifier.height(200.dp)) {
                 items(productos) { producto ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -72,20 +108,37 @@ fun GestionPromocionBottomSheet(
             }
 
             Spacer(Modifier.height(12.dp))
-            Button(
-                onClick = {
-                    val productosSeleccionados = productos.filter { seleccionados[it.id] == true }
 
+            BotonTransparenteNegro(
+                onClick = {
                     scope.launch {
+                        if (nombre.isBlank() || descripcion.isBlank() || precio.isBlank()) {
+                            println("⚠️ Faltan campos obligatorios")
+                            return@launch
+                        }
+
+                        // 🧩 Subir imagen solo si es nueva (URI local)
+                        val urlFinal = when {
+                            imagenUri != null -> subirImagenPromocion(
+                                context,
+                                imagenUri!!,
+                                "promo_${System.currentTimeMillis()}.jpg"
+                            )
+                            imagenUrl.startsWith("https://") -> imagenUrl
+                            else -> ""
+                        }
+
+                        val productosSeleccionados = productos.filter { seleccionados[it.id] == true }
+
                         if (promocionInicial == null) {
-                            // ➕ Crear nueva promoción (sin id)
+                            // ➕ Crear promoción nueva
                             val nuevaPromo = insertarPromocion(
                                 Promocion(
                                     nombre_promocion = nombre,
                                     descripcion_promocion = descripcion,
-                                    imagen_promocion = imagenUrl,
+                                    imagen_promocion = urlFinal,
                                     precio_total = precio.toDoubleOrNull() ?: 0.0,
-                                    estado = false // 👈 siempre empieza desactivada
+                                    estado = false
                                 )
                             )
                             val ok = nuevaPromo?.let {
@@ -93,44 +146,34 @@ fun GestionPromocionBottomSheet(
                             } ?: false
 
                             if (ok) {
+                                viewModel.crearPromocionYNotificar(nuevaPromo)
                                 viewModel.cargarDatos()
                                 onDismiss()
-                            } else {
-                                println("❌ No se pudo guardar la promoción")
                             }
-
                         } else {
-                            // ✏️ Editar existente (sí tiene id)
-                            val promo = Promocion(
+                            // ✏️ Editar existente
+                            val promoEditada = Promocion(
                                 id = promocionInicial.promocion.id,
                                 nombre_promocion = nombre,
                                 descripcion_promocion = descripcion,
-                                imagen_promocion = imagenUrl,
+                                imagen_promocion = urlFinal,
                                 precio_total = precio.toDoubleOrNull() ?: 0.0,
                                 estado = promocionInicial.promocion.estado
                             )
 
-                            val updated = actualizarPromocion(promo)
-                            val ok = if (updated) {
-                                val idReal = promo.id ?: return@launch
-                                eliminarRelacionesPromocion(idReal)
-                                guardarRelaciones(idReal, productosSeleccionados)
-                            } else false
-
-                            if (ok) {
+                            val updated = actualizarPromocion(promoEditada)
+                            if (updated) {
+                                eliminarRelacionesPromocion(promoEditada.id!!)
+                                guardarRelaciones(promoEditada.id!!, productosSeleccionados)
                                 viewModel.cargarDatos()
                                 onDismiss()
-                            } else {
-                                println("❌ No se pudo guardar la promoción")
                             }
                         }
                     }
                 },
+                texto = "Guardar",
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Guardar")
-            }
-
+            )
 
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {

@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -14,29 +15,41 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Carniceria_App"
         tools:targetApi="31">
+
+        <!-- 🔔 Servicio de notificaciones -->
+        <service
+            android:name=".NotificationService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- 🏁 Actividad principal -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Carniceria_App">
-            <!-- 1) Activity de arranque de la app -->
+
+            <!-- 1️⃣ Activity de arranque -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- 2) Deep link personalizado -->
+            <!-- 2️⃣ Deep link para Google Auth -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="myapp"
-                    android:host="auth-callback"
-                    android:pathPrefix="/" />
+                    android:host="auth-callback" />
             </intent-filter>
 
-        </activity>
-    </application>
 
+        </activity>
+
+    </application>
 </manifest>

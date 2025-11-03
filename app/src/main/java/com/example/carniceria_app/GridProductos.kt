@@ -1,6 +1,7 @@
 package com.example.carniceria_app
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -21,7 +22,9 @@ import coil.compose.rememberAsyncImagePainter
 import com.carniceria.shared.shared.models.utils.Product
 
 @Composable
-fun GridProductos(productos: List<Product>, onAddClick: (Product) -> Unit) {
+fun GridProductos(productos: List<Product>,
+                  onAddClick: (Product) -> Unit,
+                  onProductoClick: (Product) -> Unit) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(3),
         modifier = Modifier.fillMaxSize(),
@@ -49,6 +52,7 @@ fun GridProductos(productos: List<Product>, onAddClick: (Product) -> Unit) {
                             .fillMaxWidth()
                             .aspectRatio(1f)
                             .clip(RoundedCornerShape(8.dp))
+                            .clickable { onProductoClick(producto) }
                     )
 
                     Spacer(modifier = Modifier.height(6.dp))

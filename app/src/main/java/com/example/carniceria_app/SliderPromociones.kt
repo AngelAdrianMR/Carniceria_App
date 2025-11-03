@@ -1,6 +1,7 @@
 package com.example.carniceria_app
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -15,13 +16,15 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.layout.ContentScale
 import com.carniceria.shared.shared.models.utils.Product
+import com.carniceria.shared.shared.models.utils.Promocion
 import com.carniceria.shared.shared.models.utils.PromocionConProductos
 
 @Composable
 fun SliderPromociones(
     promociones: List<PromocionConProductos>,
     onAddClick: (Product) -> Unit ,
-    onAddPromocion: (PromocionConProductos) -> Unit
+    onAddPromocion: (PromocionConProductos) -> Unit,
+    onPromoClick: (Promocion) -> Unit
 ) {
     LazyRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -37,6 +40,9 @@ fun SliderPromociones(
                 modifier = Modifier
                     .width(250.dp)
                     .wrapContentHeight()
+                    // 👇 ahora al tocar la tarjeta completa abre la promo
+                    .clickable { onPromoClick(promo) },
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     Image(

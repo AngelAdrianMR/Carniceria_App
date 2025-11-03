@@ -3,6 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    //id("com.google.gms.google-services")
 }
 
 java {
@@ -74,6 +75,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.compose.foundation)
 
     // Tests
     testImplementation(libs.junit)
@@ -111,6 +113,15 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
 
-    // Firebase (opcional)
+    implementation ("androidx.appcompat:appcompat:1.7.0")
+    implementation ("androidx.activity:activity-compose:1.9.0") // o superior estable
+    implementation("io.github.jan-tennert.supabase:functions-kt")
+    implementation("io.github.jan-tennert.supabase:storage-kt:3.1.1")
+
+// 🔥 Firebase (manejado por BOM)
+// 🔥 Firebase (sin BOM, versiones explícitas)
     implementation("com.google.firebase:firebase-auth-ktx:23.1.0")
+    implementation("com.google.firebase:firebase-messaging-ktx:24.0.0")
+    implementation("com.google.firebase:firebase-functions-ktx:21.0.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 }

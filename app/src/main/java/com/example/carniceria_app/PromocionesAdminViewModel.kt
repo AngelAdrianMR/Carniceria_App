@@ -3,11 +3,13 @@ package com.example.carniceria_app
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carniceria.shared.shared.models.utils.Product
+import com.carniceria.shared.shared.models.utils.Promocion
 import com.carniceria.shared.shared.models.utils.PromocionConProductos
+import com.carniceria.shared.shared.models.utils.SupabaseProvider
 import com.carniceria.shared.shared.models.utils.eliminarPromocionPorId
 import com.carniceria.shared.shared.models.utils.obtenerProductos
-import com.carniceria.shared.shared.models.utils.obtenerPromociones
 import com.carniceria.shared.shared.models.utils.obtenerPromocionesAdmin
+import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +35,7 @@ class PromocionesAdminViewModel : ViewModel() {
         }
     }
 
+    // 🔹 Cargar promociones y productos
     suspend fun cargarDatos() {
         try {
             _loading.value = true
@@ -46,6 +49,7 @@ class PromocionesAdminViewModel : ViewModel() {
         }
     }
 
+    // 🔹 Eliminar promoción
     fun eliminarPromocion(promo: PromocionConProductos) {
         viewModelScope.launch {
             try {
@@ -70,4 +74,55 @@ class PromocionesAdminViewModel : ViewModel() {
         }
     }
 
+    // ✅ Notifica a todos los clientes una nueva promoción
+    fun crearPromocionYNotificar(promocion: Promocion) {
+        viewModelScope.launch {
+            try {
+                _loading.value = true
+                _error.value = null
+
+                // 🎯 Mensaje dinámico con nombre + precio
+                val titulo = "🎉 Nueva promoción: ${promocion.nombre_promocion}"
+                val cuerpo = "Disponible por solo ${String.format("%.2f", promocion.precio_total)} € 💰"
+
+                println("🔔 Enviando notificación: $titulo - $cuerpo")
+
+                // ✅ Llamada a la función global de notificación
+                notificarClientes(
+                    titulo = titulo,
+                    cuerpo = cuerpo
+                )
+
+                // 🔁 Refrescar la lista de promociones
+                cargarDatos()
+
+            } catch (e: Exception) {
+                _error.value = "❌ Error al enviar notificación: ${e.localizedMessage}"
+                println("❌ Error al enviar notificación: ${e.message}")
+            } finally {
+                _loading.value = false
+            }
+        }
+    }
+
+    fun notificarNuevoProducto(producto: Product) {
+        viewModelScope.launch {
+            try {
+                val titulo = "🆕 Nuevo producto disponible"
+                val cuerpo = "${producto.nombre_producto} por solo ${String.format("%.2f", producto.precio_venta)} € 🛒"
+
+                println("🔔 Enviando notificación a clientes: $titulo - $cuerpo")
+
+                notificarClientes(
+                    titulo = titulo,
+                    cuerpo = cuerpo
+                )
+
+            } catch (e: Exception) {
+                println("❌ Error al notificar nuevo producto: ${e.message}")
+            }
+        }
+    }
+
 }
+

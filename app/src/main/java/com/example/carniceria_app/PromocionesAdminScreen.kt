@@ -1,5 +1,6 @@
 package com.example.carniceria_app
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import com.carniceria.shared.shared.models.utils.PromocionConProductos
 import com.carniceria.shared.shared.models.utils.cambiarEstadoPromocion
 import kotlinx.coroutines.launch
@@ -22,7 +24,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun PromocionesAdminScreen(
     viewModel: PromocionesAdminViewModel = viewModel(),
-    navController: NavController
+    navController: NavHostController,
+    onLogout: () -> Unit
 ) {
     val promociones by viewModel.promociones.collectAsState()
     val productos by viewModel.productos.collectAsState()
@@ -34,35 +37,40 @@ fun PromocionesAdminScreen(
 
     val scope = rememberCoroutineScope()
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Column {
-            UserHeader(
-                title = "Promociones",
-                current = HeaderTab.Productos,
-                onNavigateHome = {
-                    navController.navigate("homeAdminScreen") {
-                        popUpTo("homeUserScreen") { inclusive = false }
-                        launchSingleTop = true
-                    }
-                },
-                onNavigationToPerfil = { navController.navigate("perfilUser") },
-                onNavigationToProduct = { /* ya estás en promociones */ },
-                onNavigationToFacture = { navController.navigate("facturasUser") },
-                onAbrirCarrito = { /* aquí no aplica */ },
-                mostrarCarrito = false
+    // 🧱 Estructura principal
+    Scaffold(
+        topBar = {
+            UpBarAdmin(
+                navController = navController,
+                titulo = "Gestión de Promociones",
+                onLogout = onLogout
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    promocionSeleccionada = null // 👉 modo nueva promoción
+                    mostrarFormulario = true     // 👉 abre el panel
+                }
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Nueva Promoción")
+            }
+        }
+    ) { paddingValues ->
 
-            Spacer(Modifier.height(16.dp))
-
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .padding(paddingValues)
+        ) {
             when {
                 loading -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator() }
+                ) {
+                    CircularProgressIndicator()
+                }
 
                 error != null -> Text(
                     text = error ?: "",
@@ -72,7 +80,18 @@ fun PromocionesAdminScreen(
 
                 else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(promociones) { promoConProductos ->
-                        Card {
+                        val promo = promoConProductos.promocion
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    promo.id?.let { id ->
+                                        navController.navigate("promocionDetalle/$id")
+                                    }
+                                },
+                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                        ) {
                             Column(modifier = Modifier.padding(12.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -80,16 +99,15 @@ fun PromocionesAdminScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        promoConProductos.promocion.nombre_promocion,
+                                        promo.nombre_promocion,
                                         style = MaterialTheme.typography.titleMedium
                                     )
 
-                                    // 🔘 Toggle para activar/desactivar
                                     Switch(
-                                        checked = promoConProductos.promocion.estado,
+                                        checked = promo.estado,
                                         onCheckedChange = { checked ->
                                             scope.launch {
-                                                promoConProductos.promocion.id?.let { idReal ->   // 👈 asegura que no sea null
+                                                promo.id?.let { idReal ->
                                                     val ok = cambiarEstadoPromocion(idReal, checked)
                                                     if (ok) {
                                                         viewModel.cargarDatos()
@@ -103,7 +121,7 @@ fun PromocionesAdminScreen(
                                 }
 
                                 Text(
-                                    "Precio: ${promoConProductos.promocion.precio_total} €",
+                                    "Precio: ${promo.precio_total} €",
                                     style = MaterialTheme.typography.bodyMedium
                                 )
 
@@ -127,7 +145,7 @@ fun PromocionesAdminScreen(
                                     }
                                     IconButton(onClick = {
                                         scope.launch {
-                                            println("🗑️ Eliminando promoción ID: ${promoConProductos.promocion.id}")
+                                            println("🗑️ Eliminando promoción ID: ${promo.id}")
                                             viewModel.eliminarPromocion(promoConProductos)
                                             viewModel.cargarDatos()
                                         }
@@ -146,16 +164,7 @@ fun PromocionesAdminScreen(
             }
         }
 
-        FloatingActionButton(
-            onClick = {
-                promocionSeleccionada = null
-                mostrarFormulario = true
-            },
-            modifier = Modifier.align(Alignment.BottomEnd)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = "Nueva Promoción")
-        }
-
+        // 🧩 Panel para crear/editar promoción
         if (mostrarFormulario) {
             GestionPromocionBottomSheet(
                 productos = productos,
@@ -168,4 +177,3 @@ fun PromocionesAdminScreen(
         }
     }
 }
-

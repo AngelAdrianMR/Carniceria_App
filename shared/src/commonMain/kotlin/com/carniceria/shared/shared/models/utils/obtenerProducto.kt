@@ -1,8 +1,11 @@
 package com.carniceria.shared.shared.models.utils
 
+import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 
-// ------------------ PRODUCTOS ------------------
+// ========================================================
+// 🥩 PRODUCTOS
+// ========================================================
 
 suspend fun obtenerProductos(): List<Product> {
     return try {
@@ -18,7 +21,7 @@ suspend fun obtenerProductos(): List<Product> {
 suspend fun insertarProducto(producto: Product): Product? {
     return try {
         SupabaseProvider.client.postgrest["productos"]
-            .insert(producto) {select()}
+            .insert(producto) { select() }
             .decodeSingleOrNull<Product>()
     } catch (e: Exception) {
         println("❌ Error al insertar producto: ${e.message}")
@@ -29,19 +32,17 @@ suspend fun insertarProducto(producto: Product): Product? {
 suspend fun actualizarProducto(producto: Product): Boolean {
     return try {
         SupabaseProvider.client.postgrest["productos"]
-            .update(
-                {
-                    set("nombre_producto", producto.nombre_producto)
-                    set("descripcion_producto", producto.descripcion_producto)
-                    set("categoria_producto", producto.categoria_producto)
-                    set("precio_venta", producto.precio_venta)
-                    set("precio_compra", producto.precio_compra)
-                    set("imagen_producto", producto.imagen_producto)
-                    set("unidad_medida", producto.unidad_medida)
-                    set("stock_producto", producto.stock_producto)
-                }
-            ) {
-                filter { eq("id", producto.id!!) }  // usamos el ID solo en el filtro
+            .update({
+                set("nombre_producto", producto.nombre_producto)
+                set("descripcion_producto", producto.descripcion_producto)
+                set("categoria_producto", producto.categoria_producto)
+                set("precio_venta", producto.precio_venta)
+                set("precio_compra", producto.precio_compra)
+                set("imagen_producto", producto.imagen_producto)
+                set("unidad_medida", producto.unidad_medida)
+                set("stock_producto", producto.stock_producto)
+            }) {
+                filter { eq("id", producto.id!!) }
                 select()
             }
             .decodeSingleOrNull<Product>() != null
@@ -51,15 +52,48 @@ suspend fun actualizarProducto(producto: Product): Boolean {
     }
 }
 
+/**
+ * Importa cantidades de stock sumando al stock actual de cada producto.
+ * Recibe un mapa con ID → cantidad a sumar.
+ */
+suspend fun actualizarStockProductos(cantidades: Map<Long, Int>): Boolean {
+    return try {
+        for ((id, cantidadASumar) in cantidades) {
+            try {
+                // 🧩 1️⃣ Obtener el producto actual
+                val productoActual = SupabaseProvider.client.postgrest["productos"]
+                    .select { filter { eq("id", id) } }
+                    .decodeSingle<Product>()
+
+                val nuevoStock = productoActual.stock_producto?.plus(cantidadASumar)
+
+                // 🧩 2️⃣ Actualizar el stock sumado
+                SupabaseProvider.client.postgrest["productos"]
+                    .update({
+                        set("stock_producto", nuevoStock)
+                    }) {
+                        filter { eq("id", id) }
+                    }
+
+                println("✅ Stock actualizado para '${productoActual.nombre_producto}': → $nuevoStock")
+            } catch (e: Exception) {
+                println("⚠️ Error en producto ID $id: ${e.message}")
+            }
+        }
+        println("✅ Importación de stock completada.")
+        true
+    } catch (e: Exception) {
+        println("❌ Error general al importar stock: ${e.message}")
+        false
+    }
+}
 
 suspend fun eliminarProductoPorId(id: Long): Boolean {
     return try {
         SupabaseProvider.client.postgrest["productos"]
-            .delete {
-                filter {
-                    "id" to "eq.$id"
-                }
-            }
+            .delete{ filter{eq("id", id)}}
+
+        println("✅ Producto eliminado correctamente (ID: $id)")
         true
     } catch (e: Exception) {
         println("❌ Error al eliminar producto: ${e.message}")
@@ -67,30 +101,14 @@ suspend fun eliminarProductoPorId(id: Long): Boolean {
     }
 }
 
-suspend fun actualizarStockProducto(id: Long, nuevoStock: Int): Boolean {
-    return try {
-        SupabaseProvider.client.postgrest["productos"]
-            .update(
-                { set("stock_producto", nuevoStock) } // 🔄 actualiza solo el stock
-            ) {
-                filter { "id" to "eq.$id" }
-                select()
-            }
-        true
-    } catch (e: Exception) {
-        println("❌ Error al actualizar stock: ${e.message}")
-        false
-    }
-}
-
-// ------------------ PROMOCIONES ------------------
+// ========================================================
+// 🎟️ PROMOCIONES
+// ========================================================
 
 suspend fun obtenerPromociones(): List<PromocionConProductos> {
     return try {
         val promociones = SupabaseProvider.client.postgrest["combos_promociones"]
-            .select{
-                filter { eq("estado", true) }   // 👈 solo activas
-            }
+            .select { filter { eq("estado", true) } } // 👈 Solo activas
             .decodeList<Promocion>()
 
         val relaciones = SupabaseProvider.client.postgrest["producto_promociones"]
@@ -153,7 +171,6 @@ suspend fun insertarPromocion(promocion: Promocion): Promocion? {
     }
 }
 
-
 suspend fun actualizarPromocion(promocion: Promocion): Boolean {
     val id = promocion.id ?: return false
     return try {
@@ -171,20 +188,19 @@ suspend fun actualizarPromocion(promocion: Promocion): Boolean {
 
 suspend fun eliminarPromocionPorId(id: Long): Boolean {
     return try {
+        // 🧩 Primero eliminamos la promoción
         SupabaseProvider.client.postgrest["combos_promociones"]
             .delete {
-                filter {
-                    "id" to "eq.$id"
-                }
+                filter { eq("id", id) } // 👈 WHERE id = $id
             }
 
+         //🧩 Luego las relaciones asociadas
         SupabaseProvider.client.postgrest["producto_promociones"]
             .delete {
-                filter {
-                    "promocion_id" to "eq.$id"
-                }
+                filter { eq("promocion_id", id) } // 👈 WHERE promocion_id = $id
             }
 
+        println("✅ Promoción eliminada correctamente (ID: $id)")
         true
     } catch (e: Exception) {
         println("❌ Error al eliminar promoción: ${e.message}")
@@ -195,9 +211,7 @@ suspend fun eliminarPromocionPorId(id: Long): Boolean {
 suspend fun eliminarRelacionesPromocion(promoId: Long): Boolean {
     return try {
         SupabaseProvider.client.postgrest["producto_promociones"]
-            .delete {
-                filter { eq("promocion_id", promoId) }
-            }
+            .delete { filter { eq("promocion_id", promoId) } }
         true
     } catch (e: Exception) {
         println("❌ Error al eliminar relaciones: ${e.message}")
@@ -205,16 +219,13 @@ suspend fun eliminarRelacionesPromocion(promoId: Long): Boolean {
     }
 }
 
-
 suspend fun guardarRelaciones(promoId: Long, productos: List<Product>): Boolean {
     return try {
-        // Borrar relaciones previas
+        // 🧩 Borrar relaciones previas
         SupabaseProvider.client.postgrest["producto_promociones"]
-            .delete {
-                filter { eq("promocion_id", promoId) }
-            }
+            .delete { filter { eq("promocion_id", promoId) } }
 
-        // Insertar nuevas
+        // 🧩 Insertar nuevas
         val nuevasRelaciones = productos.map {
             mapOf("promocion_id" to promoId, "producto_id" to it.id)
         }
@@ -229,12 +240,12 @@ suspend fun guardarRelaciones(promoId: Long, productos: List<Product>): Boolean 
     }
 }
 
-suspend fun cambiarEstadoPromocion(id: Long, estado: Boolean): Boolean {
+suspend fun cambiarEstadoPromocion(id: Long, nuevoEstado: Boolean): Boolean {
     return try {
-        SupabaseProvider.client.postgrest["combos_promociones"]
-            .update({ set("estado", estado) }) {
+        SupabaseProvider.client
+            .from("combos_promociones")
+            .update(mapOf("estado" to nuevoEstado)) {
                 filter { eq("id", id) }
-                select()
             }
         true
     } catch (e: Exception) {
@@ -243,7 +254,9 @@ suspend fun cambiarEstadoPromocion(id: Long, estado: Boolean): Boolean {
     }
 }
 
-// ------------------ RPC ------------------
+// ========================================================
+// ⚙️ RPC (Funciones en Supabase)
+// ========================================================
 
 suspend fun obtenerCategoriasProducto(): List<String> {
     return try {
@@ -262,5 +275,28 @@ suspend fun obtenerUnidadesMedida(): List<String> {
     } catch (e: Exception) {
         println("❌ Error al obtener unidades: ${e.message}")
         emptyList()
+    }
+}
+
+suspend fun obtenerPromocionConProductos(promocionId: Long): PromocionConProductos? {
+    return try {
+        val promo = SupabaseProvider.client.postgrest["combos_promociones"]
+            .select { filter { eq("id", promocionId) } }
+            .decodeSingle<Promocion>()
+
+        val relaciones = SupabaseProvider.client.postgrest["producto_promociones"]
+            .select { filter { eq("promocion_id", promocionId) } }
+            .decodeList<ProductoPromocion>()
+
+        val productos = obtenerProductos()
+
+        val productosDeEstaPromo = relaciones.mapNotNull { rel ->
+            productos.find { it.id == rel.producto_id }
+        }
+
+        PromocionConProductos(promocion = promo, productos = productosDeEstaPromo)
+    } catch (e: Exception) {
+        println("❌ Error al obtener promoción: ${e.message}")
+        null
     }
 }

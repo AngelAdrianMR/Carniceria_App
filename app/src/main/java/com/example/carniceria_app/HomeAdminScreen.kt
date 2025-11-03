@@ -1,11 +1,23 @@
 package com.example.carniceria_app
 
 import android.util.Log
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
@@ -21,141 +33,141 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeAdminScreen(navController: NavHostController, onLogout: () -> Unit) {
     val carritoViewModel: CarritoViewModel = viewModel()
-    val authViewModel: AuthViewModel = viewModel()
     val carrito = carritoViewModel.carrito
 
     var mostrarCarritoLateral by remember { mutableStateOf(false) }
+    var mostrarMenuLateral by remember { mutableStateOf(false) }
+
     var promociones by remember { mutableStateOf<List<PromocionConProductos>>(emptyList()) }
     var productos by remember { mutableStateOf<List<Product>>(emptyList()) }
     var categoriaSeleccionada by remember { mutableStateOf<String?>(null) }
     var productoSeleccionado by remember { mutableStateOf<Product?>(null) }
     var mostrarCantidadBottomSheet by remember { mutableStateOf(false) }
     var perfilUsuario by remember { mutableStateOf<PerfilUsuario?>(null) }
-    val direccionUsuario = perfilUsuario?.direccion ?: ""
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Cargar datos
+    var mensajeError by remember { mutableStateOf<String?>(null) }
+
+    // 🔹 Cargar datos iniciales
     LaunchedEffect(Unit) {
         try {
             promociones = obtenerPromocionesAdmin()
             productos = obtenerProductos()
-
             perfilUsuario = obtenerPerfilUsuarioActual()
-
         } catch (e: Exception) {
-            Log.e("HomeAdminScreen", "Error al obtener datos", e)
+            Log.e("HomeAdminScreen", "❌ Error al obtener datos", e)
+            mensajeError = "Error al cargar datos: ${e.message}"
         }
     }
-
-    val productosFiltrados = categoriaSeleccionada?.let {
-        productos.filter { it.categoria_producto == categoriaSeleccionada }
-    } ?: productos
+    val productosDestacados = productos.filter { it.destacado == true }
+    val productosFiltrados = categoriaSeleccionada?.let { categoria ->
+        productosDestacados.filter { it.categoria_producto == categoria }
+    } ?: productosDestacados
 
     val listState = rememberLazyListState()
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        state = listState,
-        contentPadding = PaddingValues(bottom = 24.dp)
-    ) {
-        // Header + Logout + Botón admin
-        item {
-            UserHeader(
-                title = "Inicio",
-                current = null,
-                onNavigateHome = { /* ya estás en Home */ },
-                onNavigationToPerfil = { navController.navigate("perfilUser") },
-                onNavigationToFacture = { navController.navigate("facturasUser") },
-                onNavigationToProduct = { navController.navigate("productosAdmin") },
-                onAbrirCarrito = { mostrarCarritoLateral = true },
-                mostrarCarrito = false
+    Scaffold(
+        topBar = {
+            // 🧱 Usamos aquí la nueva barra admin reutilizable
+            UpBarAdmin(
+                navController = navController,
+                titulo = "Panel de Administración",
+                onLogout = onLogout
             )
-            Spacer(Modifier.height(8.dp))
-
-            BotonTransparenteNegro(
-                onClick = {
-                    scope.launch {
-                        SupabaseProvider.client.auth.signOut()
-                        onLogout()
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(), // ocupar ancho (weight no aplica aquí)
-                texto = "Cerrar sesión"
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            Button(
-                onClick = { navController.navigate("promocionesAdmin") },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Gestionar promociones")
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Text(
-                text = "Promociones destacadas",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(6.dp))
         }
+    ) { paddingValues ->
 
-        // Slider horizontal (tu composable ya usa LazyRow)
-        item {
-            if (promociones.isNotEmpty()) {
-                SliderPromociones(
-                    promociones = promociones,
-                    onAddClick = { productoSeleccionado = it; mostrarCantidadBottomSheet = true },
-                    onAddPromocion = { promoConProductos ->
-                        carritoViewModel.agregarPromocionAlCarrito(promoConProductos, context)
-                    }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+                .padding(paddingValues),
+            state = listState,
+            contentPadding = PaddingValues(bottom = 24.dp)
+        ) {
+            // 🔹 Promociones destacadas
+            item {
+                Text(
+                    text = "Promociones destacadas",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    textAlign = TextAlign.Center
                 )
-            } else {
-                Text("Cargando promociones...", modifier = Modifier.padding(16.dp))
             }
-            Spacer(Modifier.height(12.dp))
 
-            Text(
-                text = "Nuestros Productos Destacados",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(6.dp))
+            // 🔸 Slider de promociones
+            item {
+                if (promociones.isNotEmpty()) {
+                    SliderPromociones(
+                        promociones = promociones,
+                        onAddClick = {
+                            productoSeleccionado = it
+                            mostrarCantidadBottomSheet = true
+                        },
+                        onAddPromocion = { promoConProductos ->
+                            carritoViewModel.agregarPromocionAlCarrito(promoConProductos, context)
+                        },
+                        onPromoClick = {
+                                promo ->
+                            promo.id?.let { id ->
+                                navController.navigate("promocionDetalle/$id")}
+                        }
+                    )
+                } else {
+                    Text("Cargando promociones...", modifier = Modifier.padding(16.dp))
+                }
 
-            FiltroCategorias(categorias = productos.map { it.categoria_producto }.distinct()) {
-                categoriaSeleccionada = it
+                Spacer(Modifier.height(12.dp))
+
+                Text(
+                    text = "Nuestros Productos Destacados",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(Modifier.height(6.dp))
+
+                FiltroCategorias(categorias = productos.map { it.categoria_producto }.distinct()) {
+                    categoriaSeleccionada = it
+                }
+                Spacer(Modifier.height(8.dp))
             }
-            Spacer(Modifier.height(8.dp))
-        }
 
-        // Grid con su propio scroll vertical (altura acotada)
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillParentMaxHeight(0.9f) // ocupa gran parte de la ventana y permite scroll interno del grid
-            ) {
-                GridProductos(productosFiltrados) { p ->
-                    productoSeleccionado = p
-                    mostrarCantidadBottomSheet = true
+            // 🔸 Grid de productos
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 600.dp)
+                ) {
+                    GridProductos(
+                        productos = productosFiltrados,
+                        onAddClick = {
+                            productoSeleccionado = it
+                            mostrarCantidadBottomSheet = true
+                        },
+                        onProductoClick = { producto ->
+                            producto.id?.let { id ->
+                                navController.navigate("productoDetalle/$id")
+                            }
+                        }
+                    )
                 }
             }
         }
     }
 
-    // BottomSheet para seleccionar cantidad
+    // 🧩 BottomSheet de cantidad
     if (mostrarCantidadBottomSheet && productoSeleccionado != null) {
-        ModalBottomSheet(onDismissRequest = {
-            mostrarCantidadBottomSheet = false
-            productoSeleccionado = null
-        }) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                mostrarCantidadBottomSheet = false
+                productoSeleccionado = null
+            }
+        ) {
             SeleccionCantidadBottomSheet(
                 producto = productoSeleccionado!!,
                 onDismiss = {
@@ -170,36 +182,24 @@ fun HomeAdminScreen(navController: NavHostController, onLogout: () -> Unit) {
         }
     }
 
-    // Carrito lateral
+    // 🛒 Carrito lateral
     if (mostrarCarritoLateral) {
-        val scope = rememberCoroutineScope()
-
-        CarritoLateral(
-            carrito = carritoViewModel.carrito,
-            direccionUsuario = direccionUsuario,
-            onCerrar = { mostrarCarritoLateral = false },
-
-            // 🚚 Pedir a domicilio
-            onReservar = {
-                mostrarCarritoLateral = false
-                // aquí irá la lógica de envío
-            },
-
-            // 🏪 Recoger en tienda
-            onRecoger = {
-                mostrarCarritoLateral = false
-                scope.launch {
-                    carritoViewModel.confirmarRecogidaEnTienda(context)
-                }
-            },
-
-            onEliminarItem = { item ->
-                item.producto.id?.let { id ->
-                    carritoViewModel.eliminarProducto(id, context)
-                }
-            }
-            ,
-            modifier = Modifier.zIndex(1f)
-        )
+        perfilUsuario?.let { perfil ->
+            CarritoLateral(
+                carrito = carrito,
+                direccionUsuario = perfil.direccionCompleta,
+                usuarioId = perfil.id,
+                carritoViewModel = carritoViewModel,
+                codigoPostalUsuario = perfil.codigo_postal,
+                onCerrar = { mostrarCarritoLateral = false },
+                onEliminarItem = { item ->
+                    item.producto?.id?.let {
+                        carritoViewModel.eliminarProducto(item, context)
+                    }
+                },
+                modifier = Modifier.zIndex(3f)
+            )
+        }
     }
 }
+
