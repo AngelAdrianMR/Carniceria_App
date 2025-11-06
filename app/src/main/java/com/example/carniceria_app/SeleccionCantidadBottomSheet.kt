@@ -106,31 +106,55 @@ fun SeleccionCantidadBottomSheet(
         BotonTransparenteNegro(
             onClick = {
                 val cantidadFinal = if (producto.unidad_medida.equals("Kilo", true)) {
-                    // 🔹 Mínimo 0.5 kg (coerceAtLeast asegura el valor)
                     (cantidadKilos.toDoubleOrNull() ?: 0.5).coerceAtLeast(0.5)
                 } else {
                     cantidadUnidad.toDouble()
                 }
 
-                val anadido = carritoViewModel.agregarAlCarrito(
-                    producto,
-                    cantidadFinal,
-                    mensajePreparacion.ifBlank { null }
-                )
+                val stockDisponible = producto.stock_producto ?: 0.0
+                val nombreUnidad = producto.unidad_medida?.lowercase() ?: "unidad"
 
-                if (anadido) {
-                    carritoViewModel.guardarCarritoLocal(context)
-                    onConfirmar()
-                } else {
-                    Toast.makeText(
-                        context,
-                        "El pedido mínimo para productos por kilo es de 0.5 kg",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                when {
+                    cantidadFinal <= 0 -> {
+                        Toast.makeText(context, "Cantidad no válida.", Toast.LENGTH_SHORT).show()
+                    }
+
+                    cantidadFinal > stockDisponible -> {
+                        Toast.makeText(
+                            context,
+                            "❌ Solo hay $stockDisponible $nombreUnidad(s) disponibles.",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+
+                    else -> {
+                        val anadido = carritoViewModel.agregarAlCarrito(
+                            producto,
+                            cantidadFinal,
+                            mensajePreparacion.ifBlank { null }
+                        )
+
+                        if (anadido) {
+                            carritoViewModel.guardarCarritoLocal(context)
+                            Toast.makeText(
+                                context,
+                                "✅ ${producto.nombre_producto} añadido al carrito.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            onConfirmar()
+                        } else {
+                            Toast.makeText(
+                                context,
+                                "⚠️ No se pudo añadir el producto al carrito.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
                 }
             },
             modifier = Modifier.fillMaxWidth(),
             texto = "Añadir al carrito"
         )
+
     }
 }

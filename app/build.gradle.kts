@@ -3,7 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
-    //id("com.google.gms.google-services")
+    id("com.google.gms.google-services")
 }
 
 java {
@@ -124,4 +124,7 @@ dependencies {
     implementation("com.google.firebase:firebase-messaging-ktx:24.0.0")
     implementation("com.google.firebase:firebase-functions-ktx:21.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+
+    implementation("androidx.compose.material:material-icons-extended:1.7.5")
+
 }

@@ -33,7 +33,6 @@ class SupabaseService(private val supabase: SupabaseClient) {
                 item.mensaje?.let {
                     put("mensaje", JsonPrimitive(it))
                 }
-
             }
         }
 
@@ -41,17 +40,66 @@ class SupabaseService(private val supabase: SupabaseClient) {
             put("p_usuario_id", usuarioId)
             put("p_productos", JsonArray(payload))
             put("p_tipo_entrega", tipoEntrega)
-
-            // 👇 añadimos el descuento
             codigo?.let { put("p_codigo_descuento", it) }
             put("p_descuento_aplicado", descuento)
         }
 
-        return supabase.postgrest.rpc(
+        // 🔹 1️⃣ Crear el pedido mediante la función RPC
+        val pedidoId = supabase.postgrest.rpc(
             function = "crear_pedido",
             parameters = params
         ).decodeAs<Long>()
+
+        println("✅ Pedido creado con ID: $pedidoId (tipo: $tipoEntrega)")
+
+        // 🔹 2️⃣ Actualizar stock en Supabase
+        try {
+            for (item in carrito) {
+                when {
+                    // 🧾 Producto normal
+                    item.producto != null -> {
+                        val prod = item.producto!!
+                        val idProducto = prod.id
+                        if (idProducto != null) {
+                            val nuevoStock = prod.stock_producto?.minus(item.cantidad)
+                            SupabaseProvider.client.from("productos")
+                                .update(mapOf("stock_producto" to nuevoStock?.coerceAtLeast(0.0))) {
+                                    filter { eq("id", idProducto) }
+                                }
+                            println("🔻 Stock actualizado para ${prod.nombre_producto}: $nuevoStock")
+                            println("🔻 Stock actualizado para ${prod.nombre_producto}: ${item.cantidad}")
+                            println("🔻 Stock actualizado para ${prod.nombre_producto}: ${prod.stock_producto}")
+                        } else {
+                            println("⚠️ Producto sin ID, no se puede actualizar stock (${prod.nombre_producto})")
+                        }
+                    }
+
+                    // 🧾 Promoción: restar stock de todos los productos que contiene
+                    item.promocion != null -> {
+                        val promo = item.promocion!!
+                        for (p in promo.productos) {
+                            val idProdPromo = p.id
+                            if (idProdPromo != null) {
+                                val nuevoStock = (p.stock_producto ?: 0.0) - item.cantidad
+                                SupabaseProvider.client.from("productos")
+                                    .update(mapOf("stock_producto" to nuevoStock.coerceAtLeast(0.0))) {
+                                        filter { eq("id", idProdPromo) }
+                                    }
+                                println("🔻 Stock actualizado para producto ${p.nombre_producto} (promo: ${promo.promocion.nombre_promocion}): $nuevoStock")
+                            } else {
+                                println("⚠️ Producto de promoción sin ID (${p.nombre_producto})")
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            println("❌ Error al actualizar stock: ${e.message}")
+        }
+
+        return pedidoId
     }
+
 
     // ===== Helpers privados =====
 

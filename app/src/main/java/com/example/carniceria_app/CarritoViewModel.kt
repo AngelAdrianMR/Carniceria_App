@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.lifecycle.ViewModel
 import com.carniceria.shared.shared.models.utils.CarritoItem
 import com.carniceria.shared.shared.models.utils.Product
@@ -66,8 +67,28 @@ class CarritoViewModel(
     }
 
     fun eliminarProducto(item: CarritoItem, context: Context) {
-        carrito.remove(item)
+        println("🗑️ Intentando eliminar: ${item.producto?.nombre_producto ?: item.promocion?.promocion?.nombre_promocion}")
+
+        // 🔹 Intentamos primero eliminar por referencia exacta (misma instancia)
+        val eliminado = carrito.remove(item)
+
+        // 🔹 Si no se eliminó, intentamos por ID de producto o promoción
+        if (!eliminado) {
+            carrito.removeIf {
+                when {
+                    item.producto != null && it.producto != null ->
+                        it.producto?.id == item.producto?.id
+                    item.promocion != null && it.promocion != null ->
+                        // Compara por ID y además por nombre de promoción para distinguir duplicadas
+                        it.promocion?.promocion?.id == item.promocion?.promocion?.id &&
+                                it.promocion?.promocion?.nombre_promocion == item.promocion?.promocion?.nombre_promocion
+                    else -> false
+                }
+            }
+        }
+
         guardarCarritoLocal(context)
+        carrito = carrito.toMutableStateList() // 🔄 refrescar Compose
     }
 
     fun agregarPromocionAlCarrito(promocionConProductos: PromocionConProductos, context: Context): Boolean {

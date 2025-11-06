@@ -14,20 +14,27 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import com.example.carniceria_app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SobreNosotrosScreen(navController: NavController) {
+fun SobreNosotrosScreen(navController: NavHostController, onLogout: () -> Unit,) {
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Sobre nosotros") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
-                    }
-                }
+            UserHeader(
+                navController = navController,
+                titulo = "Nuestra historia",
+                onNavigateHome = { navController.navigate("homeUserScreen") },
+                onNavigationToPerfil = { navController.navigate("perfilUser") },
+                onNavigationToProductos = { navController.navigate("productosUser") },
+                onNavigationToPedidos = { navController.navigate("pedidosYFacturas") },
+                onNavigationToConfiguracion = { navController.navigate("configuracionScreen") },
+                onNavigationToSobreNosotros = { navController.navigate("sobreNosotrosScreen") },
+                onLogout = onLogout,
+                mostrarCarrito = false,
+                mostrarBotonEditar = false,
+                onEditarPerfil = { navController.navigate("editarPerfilScreen") }
             )
         }
     ) { padding ->

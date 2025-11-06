@@ -1,6 +1,8 @@
 package com.example.carniceria_app
 
 import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -15,9 +17,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.carniceria.shared.shared.models.utils.*
 import androidx.compose.ui.zIndex
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,9 +30,15 @@ fun ProductosUserScreen(navController: NavHostController, onLogout: () -> Unit) 
     val context = LocalContext.current
 
     var perfilUsuario by remember { mutableStateOf<PerfilUsuario?>(null) }
-    val direccionUsuario by remember { mutableStateOf<PerfilUsuario?>(null) }
+
+    // Colores adaptativos
+    val isDarkTheme = isSystemInDarkTheme()
+    val fondoClaro = Color(0xFFF1F1F1)
+    val fondoOscuro = Color(0xFF2B2B2B)
+    val grisFiltroOscuro = Color(0xFF383838)
 
     // Cargar productos
+    
     LaunchedEffect(Unit) {
         try {
             perfilUsuario = obtenerPerfilUsuarioActual()
@@ -55,7 +60,11 @@ fun ProductosUserScreen(navController: NavHostController, onLogout: () -> Unit) 
         coincideCategoria && coincideBusqueda
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(if (isDarkTheme) fondoOscuro else Color.White)
+    ) {
 
         // 🔹 Cabecera
         UserHeader(
@@ -68,7 +77,8 @@ fun ProductosUserScreen(navController: NavHostController, onLogout: () -> Unit) 
             onNavigationToConfiguracion = { navController.navigate("configuracionScreen") },
             onNavigationToSobreNosotros = { navController.navigate("sobreNosotrosScreen") },
             onLogout = onLogout,
-            mostrarCarrito = false,
+            mostrarCarrito = true,
+            onAbrirCarrito = { mostrarCarritoLateral = true },
             mostrarBotonEditar = false,
             onEditarPerfil = {
                 navController.navigate("editarPerfilScreen")
@@ -88,11 +98,16 @@ fun ProductosUserScreen(navController: NavHostController, onLogout: () -> Unit) 
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp),
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = Color(0xFFF1F1F1),
-                unfocusedContainerColor = Color(0xFFF1F1F1),
-                disabledContainerColor = Color(0xFFF1F1F1),
+                focusedContainerColor = if (isDarkTheme) grisFiltroOscuro else fondoClaro,
+                unfocusedContainerColor = if (isDarkTheme) grisFiltroOscuro else fondoClaro,
+                disabledContainerColor = if (isDarkTheme) grisFiltroOscuro else fondoClaro,
                 focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent
+                unfocusedIndicatorColor = Color.Transparent,
+                cursorColor = MaterialTheme.colorScheme.primary,
+                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                focusedPlaceholderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
             ),
             shape = RoundedCornerShape(50)
         )
@@ -100,7 +115,14 @@ fun ProductosUserScreen(navController: NavHostController, onLogout: () -> Unit) 
         Spacer(modifier = Modifier.height(8.dp))
 
         // 🔹 Filtro de categorías
-        FiltroCategorias(categorias) { categoriaSeleccionada = it }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(if (isDarkTheme) fondoOscuro else Color.White)
+                .padding(vertical = 4.dp)
+        ) {
+            FiltroCategorias(categorias) { categoriaSeleccionada = it }
+        }
 
         // 🔹 Grid de productos
         GridProductos(
@@ -109,7 +131,7 @@ fun ProductosUserScreen(navController: NavHostController, onLogout: () -> Unit) 
                 productoSeleccionado = it
                 mostrarCantidadBottomSheet = true
             },
-            onProductoClick = { producto ->   // 👈 nuevo callback
+            onProductoClick = { producto ->
                 producto.id?.let { id ->
                     navController.navigate("productoDetalle/$id")
                 }
@@ -137,14 +159,14 @@ fun ProductosUserScreen(navController: NavHostController, onLogout: () -> Unit) 
         }
     }
 
-    // Carrito lateral
+    // 🔹 Carrito lateral
     if (mostrarCarritoLateral) {
         perfilUsuario?.let { perfil ->
             CarritoLateral(
                 carrito = carritoViewModel.carrito,
                 direccionUsuario = perfil.direccionCompleta,
-                usuarioId = perfil.id ,                 // 👈 UUID (String)
-                carritoViewModel = carritoViewModel,   // 👈 pasamos el VM
+                usuarioId = perfil.id,
+                carritoViewModel = carritoViewModel,
                 codigoPostalUsuario = perfil.codigo_postal,
                 onCerrar = { mostrarCarritoLateral = false },
                 onEliminarItem = { item ->

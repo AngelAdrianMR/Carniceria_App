@@ -12,6 +12,8 @@ data class SupabaseUserInfo(
 )
 
 data class PerfilConEmail(
+    val id: String? = null,
+    val id_usuario: String? = null,
     val email: String,
     val nombre_completo: String? = null,
     val calle: String? = null,
@@ -91,7 +93,6 @@ suspend fun guardarPerfilUsuario(
     }
 }
 
-
 // Obtener perfil + email en un único objeto
 suspend fun obtenerPerfilCompleto(): PerfilConEmail? {
     val user = obtenerUsuarioActual() ?: return null
@@ -106,6 +107,8 @@ suspend fun obtenerPerfilCompleto(): PerfilConEmail? {
     ).joinToString(", ")
 
     return PerfilConEmail(
+        id = perfil.id,
+        id_usuario = user.id,
         email = user.email,
         nombre_completo = perfil.nombre_completo,
         calle = perfil.calle,
@@ -117,6 +120,33 @@ suspend fun obtenerPerfilCompleto(): PerfilConEmail? {
         codigoPostal = perfil.codigo_postal
     )
 }
+
+suspend fun obtenerPerfilCompletoU(): PerfilUsuario? {
+    val user = obtenerUsuarioActual() ?: return null
+    val perfil = obtenerPerfilUsuarioActual() ?: return null
+
+    val direccionCompleta = listOfNotNull(
+        perfil.calle,
+        perfil.piso,
+        perfil.localidad,
+        perfil.provincia,
+        perfil.pais
+    ).joinToString(", ")
+
+    return PerfilUsuario(
+        id = user.id,
+        nombre_completo = perfil.nombre_completo,
+        calle = perfil.calle,
+        piso = perfil.piso,
+        localidad = perfil.localidad,
+        provincia = perfil.provincia,
+        pais = perfil.pais,
+        telefono = perfil.telefono,
+        codigo_postal = perfil.codigo_postal,
+        rol = "Cliente"
+    )
+}
+
 
 fun getDireccionCompleta(
     calle: String? = null,

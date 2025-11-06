@@ -85,7 +85,9 @@ fun CarritoLateral(
                                         modifier = Modifier.weight(1f)
                                     )
 
-                                    IconButton(onClick = { onEliminarItem(item) }) {
+                                    IconButton(onClick = {
+                                        carritoViewModel.eliminarProducto(item, context)
+                                    }) {
                                         Icon(
                                             imageVector = Icons.Default.Delete,
                                             contentDescription = "Eliminar",

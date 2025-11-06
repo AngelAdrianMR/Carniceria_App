@@ -12,15 +12,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavHostController
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfiguracionScreen(
-    navController: NavController,
+    navController: NavHostController,
     authViewModel: AuthViewModel = viewModel(),
     isDarkTheme: Boolean,
-    onThemeChange: (Boolean) -> Unit
+    onThemeChange: (Boolean) -> Unit,
+    onLogout: () -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -37,13 +39,19 @@ fun ConfiguracionScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Configuración") },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
-                    }
-                }
+            UserHeader(
+                navController = navController,
+                titulo = "Configuración",
+                onNavigateHome = { navController.navigate("homeUserScreen") },
+                onNavigationToPerfil = { navController.navigate("perfilUser") },
+                onNavigationToProductos = { navController.navigate("productosUser") },
+                onNavigationToPedidos = { navController.navigate("pedidosYFacturas") },
+                onNavigationToConfiguracion = { navController.navigate("configuracionScreen") },
+                onNavigationToSobreNosotros = { navController.navigate("sobreNosotrosScreen") },
+                onLogout = onLogout,
+                mostrarCarrito = false,
+                mostrarBotonEditar = false,
+                onEditarPerfil = { navController.navigate("editarPerfilScreen") }
             )
         }
     ) { padding ->

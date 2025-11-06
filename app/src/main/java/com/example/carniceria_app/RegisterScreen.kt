@@ -5,26 +5,30 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.imePadding
 import com.carniceria.shared.shared.models.utils.*
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
-    onBackToLogin: () -> Unit,
-    onGoogleSignInClick: () -> Unit
+    onBackToLogin: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var nombreCompleto by remember { mutableStateOf("") }
@@ -38,175 +42,230 @@ fun RegisterScreen(
     var pais by remember { mutableStateOf("") }
 
     var cargando by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var mostrarPassword by remember { mutableStateOf(false) }
+    var errorGlobal by remember { mutableStateOf<String?>(null) }
+    var isPasswordFocused by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .imePadding()
-            .padding(horizontal = 24.dp, vertical = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            "Registro",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
-
-        OutlinedTextField(
-            value = nombreCompleto,
-            onValueChange = { nombreCompleto = it },
-            label = { Text("Nombre completo") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // Campos de registro
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("Email") },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("Contraseña") },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // 🏠 Dirección completa
-        OutlinedTextField(value = calle, onValueChange = { calle = it }, label = { Text("Calle y número") })
-        OutlinedTextField(value = piso, onValueChange = { piso = it }, label = { Text("Piso / Puerta") })
-        OutlinedTextField(value = localidad, onValueChange = { localidad = it }, label = { Text("Localidad") })
-        OutlinedTextField(value = provincia, onValueChange = { provincia = it }, label = { Text("Provincia") })
-        OutlinedTextField(value = pais, onValueChange = { pais = it }, label = { Text("País") })
-
-        OutlinedTextField(
-            value = postalCode,
-            onValueChange = { postalCode = it },
-            label = { Text("Código Postal") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-        )
-
-        OutlinedTextField(
-            value = phone,
-            onValueChange = { phone = it },
-            label = { Text("Teléfono") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
-        )
-
-        // 🔴 Mensaje de error breve
-        error?.let {
-            Text(
-                text = it,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        // 🔹 Botones con estilo transparente
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+            shape = MaterialTheme.shapes.medium
         ) {
-            BotonTransparenteNegro(
-                onClick = {
-                    error = null
-                    when {
-                        !Validator.isValidEmail(email) -> error = "Email no válido"
-                        password.length < 6 -> error = "Contraseña demasiado corta"
-                        !Validator.isValidPostalCode(postalCode) -> error = "Código postal inválido"
-                        !Validator.isValidPhone(phone) -> error = "Teléfono inválido"
-                        else -> {
-                            scope.launch {
-                                cargando = true
-                                try {
-                                    val result = SupabaseProvider.client.auth.signUpWith(
-                                        Email,
-                                        redirectUrl = "myapp://auth-callback"
-                                    ) {
-                                        this.email = email
-                                        this.password = password
-                                    }
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .imePadding(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = "📝 Registro de usuario",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    textAlign = TextAlign.Center
+                )
 
-                                    val userId = result?.id
-                                    if (!userId.isNullOrBlank()) {
-                                        val ok = guardarPerfilUsuario(
-                                            userId = userId,
-                                            nombre_completo = nombreCompleto,
-                                            calle = calle,
-                                            piso = piso,
-                                            localidad = localidad,
-                                            provincia = provincia,
-                                            pais = pais,
-                                            telefono = phone,
-                                            codigo_postal = postalCode,
-                                            rol = "Cliente"
-                                        )
-                                        if (ok) {
-                                            Toast.makeText(context, "Registro exitoso", Toast.LENGTH_SHORT).show()
-                                            onRegisterSuccess()
-                                        } else {
-                                            error = "No se pudo guardar el perfil."
+                // Nombre completo
+                OutlinedTextField(
+                    value = nombreCompleto,
+                    onValueChange = { nombreCompleto = it },
+                    label = { Text("Nombre completo") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Email
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (email.isNotEmpty() && !Validator.isValidEmail(email)) {
+                    Text(
+                        "Formato de email no válido",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                // Contraseña
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Contraseña") },
+                    singleLine = true,
+                    visualTransformation = if (mostrarPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { mostrarPassword = !mostrarPassword }) {
+                            Icon(
+                                imageVector = if (mostrarPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (mostrarPassword) "Ocultar contraseña" else "Mostrar contraseña"
+                            )
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onFocusChanged { focusState ->
+                            isPasswordFocused = focusState.isFocused
+                        }
+                )
+
+                // 🧾 Requisitos visibles solo al enfocar el campo
+                if (isPasswordFocused) {
+                    Text(
+                        text = "Debe tener al menos 6 caracteres, un número y un símbolo (ej: @, #, $).",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                } else if (password.isNotEmpty() && password.length < 6) {
+                    Text(
+                        "La contraseña es demasiado corta",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                // Dirección completa
+                OutlinedTextField(value = calle, onValueChange = { calle = it }, label = { Text("Calle y número") })
+                OutlinedTextField(value = piso, onValueChange = { piso = it }, label = { Text("Piso / Puerta") })
+                OutlinedTextField(value = localidad, onValueChange = { localidad = it }, label = { Text("Localidad") })
+                OutlinedTextField(value = provincia, onValueChange = { provincia = it }, label = { Text("Provincia") })
+                OutlinedTextField(value = pais, onValueChange = { pais = it }, label = { Text("País") })
+
+                OutlinedTextField(
+                    value = postalCode,
+                    onValueChange = { postalCode = it },
+                    label = { Text("Código Postal") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                if (postalCode.isNotEmpty() && !Validator.isValidPostalCode(postalCode)) {
+                    Text(
+                        "Código postal inválido",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text("Teléfono") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                )
+                if (phone.isNotEmpty() && !Validator.isValidPhone(phone)) {
+                    Text(
+                        "Número de teléfono inválido",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                // 🔴 Error global
+                errorGlobal?.let {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // 🔘 Botón principal
+                Button(
+                    onClick = {
+                        errorGlobal = null
+                        when {
+                            !Validator.isValidEmail(email) -> errorGlobal = "Email no válido"
+                            password.length < 6 -> errorGlobal = "Contraseña demasiado corta"
+                            !Validator.isValidPostalCode(postalCode) -> errorGlobal = "Código postal inválido"
+                            !Validator.isValidPhone(phone) -> errorGlobal = "Teléfono inválido"
+                            else -> {
+                                scope.launch {
+                                    cargando = true
+                                    try {
+                                        val result = SupabaseProvider.client.auth.signUpWith(
+                                            Email,
+                                            redirectUrl = "myapp://auth-callback"
+                                        ) {
+                                            this.email = email
+                                            this.password = password
                                         }
-                                    } else {
-                                        error = "Error al obtener usuario tras registro."
+
+                                        val userId = result?.id
+                                        if (!userId.isNullOrBlank()) {
+                                            val ok = guardarPerfilUsuario(
+                                                userId = userId,
+                                                nombre_completo = nombreCompleto,
+                                                calle = calle,
+                                                piso = piso,
+                                                localidad = localidad,
+                                                provincia = provincia,
+                                                pais = pais,
+                                                telefono = phone,
+                                                codigo_postal = postalCode,
+                                                rol = "Cliente"
+                                            )
+                                            if (ok) {
+                                                Toast.makeText(context, "Registro exitoso", Toast.LENGTH_SHORT).show()
+                                                onRegisterSuccess()
+                                            } else {
+                                                errorGlobal = "No se pudo guardar el perfil."
+                                            }
+                                        } else {
+                                            errorGlobal = "Error al crear usuario."
+                                        }
+                                    } catch (e: Exception) {
+                                        errorGlobal = when {
+                                            e.message?.contains("duplicate", true) == true -> "El email ya está registrado."
+                                            e.message?.contains("network", true) == true -> "Error de conexión."
+                                            else -> "Error al registrar. Intenta nuevamente."
+                                        }
+                                    } finally {
+                                        cargando = false
                                     }
-                                } catch (e: Exception) {
-                                    val mensaje = when {
-                                        e.message?.contains("duplicate", true) == true ->
-                                            "El email ya está registrado."
-                                        e.message?.contains("network", true) == true ->
-                                            "Error de conexión. Inténtalo de nuevo."
-                                        else -> "Error al registrar. Revisa los datos."
-                                    }
-                                    error = mensaje
-                                    Toast.makeText(context, mensaje, Toast.LENGTH_SHORT).show()
-                                } finally {
-                                    cargando = false
                                 }
                             }
                         }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    enabled = !cargando
+                ) {
+                    if (cargando) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Registrarse")
                     }
-                },
-                modifier = Modifier.weight(1f),
-                texto = if (cargando) "..." else "Registrarse"
-            )
+                }
 
-            BotonTransparenteNegro(
-                onClick = {
-                    scope.launch {
-                        try {
-                            SupabaseProvider.client.auth.signInWith(
-                                Google,
-                                redirectUrl = "myapp://auth-callback"
-                            )
-                        } catch (e: Exception) {
-                            error = "Error al iniciar con Google"
-                            Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                texto = "Google"
-            )
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        TextButton(
-            onClick = onBackToLogin,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        ) {
-            Text("¿Ya tienes cuenta? Inicia sesión")
+                TextButton(
+                    onClick = onBackToLogin,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Text("¿Ya tienes cuenta? Inicia sesión")
+                }
+            }
         }
     }
 }

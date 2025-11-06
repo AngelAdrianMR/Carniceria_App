@@ -28,6 +28,10 @@ import com.example.carniceria_app.data.ThemePreferences
 import com.example.carniceria_app.ui.theme.CarniceriaAppTheme
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
+import io.github.jan.supabase.auth.providers.invoke
+import io.github.jan.supabase.auth.user.UserSession
+import io.ktor.client.request.invoke
+import io.ktor.http.invoke
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -139,9 +143,7 @@ class MainActivity : ComponentActivity() {
                                         popUpTo("register") { inclusive = true }
                                     }
                                 },
-                                onBackToLogin = { navController.popBackStack() },
-                                onGoogleSignInClick = { startGoogleOAuth() }
-                            )
+                                onBackToLogin = { navController.popBackStack() })
                         }
 
                         composable("homeUserScreen") {
@@ -394,13 +396,33 @@ class MainActivity : ComponentActivity() {
                             ConfiguracionScreen(
                                 navController = navController,
                                 isDarkTheme = darkTheme,
-                                onThemeChange = { cambiarTema(it) }
+                                onThemeChange = { cambiarTema(it) },
+                                onLogout = {
+                                    lifecycleScope.launch {
+                                        SupabaseProvider.client.auth.signOut()
+                                        navController.navigate("login") {
+                                            popUpTo("perfilUser") { inclusive = true }
+                                        }
+                                    }
+                                }
                             )
                         }
 
                         composable("sobreNosotrosScreen") {
-                            SobreNosotrosScreen(navController)
+                            SobreNosotrosScreen(navController = navController,onLogout = {
+                                lifecycleScope.launch {
+                                    SupabaseProvider.client.auth.signOut()
+                                    navController.navigate("login") {
+                                        popUpTo("perfilUser") { inclusive = true }
+                                    }
+                                }
+                            })
                         }
+
+                        composable("resetPassword") {
+                            ResetPasswordScreen(navController)
+                        }
+
                     }
                 } else {
                     LoadingScreen()
@@ -412,16 +434,46 @@ class MainActivity : ComponentActivity() {
     private fun handleAuthRedirectUri(uri: Uri, navController: NavHostController) {
         lifecycleScope.launch {
             try {
-                SupabaseProvider.client.auth.exchangeCodeForSession(uri.toString())
-                val perfil = obtenerPerfilUsuarioActual()
-                val destino = when (uri.getQueryParameter("type")) {
-                    "recovery" -> "reset_password"
-                    else -> if (perfil?.rol == "Administrador") "homeAdminScreen" else "homeUserScreen"
-                }
-                navController.navigate(destino) {
-                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                val fullUri = uri.toString()
+                val fragment = uri.fragment ?: ""
+
+                val params = fragment.split("&").mapNotNull {
+                    val parts = it.split("=")
+                    if (parts.size == 2) parts[0] to parts[1] else null
+                }.toMap()
+
+                val type = params["type"]
+                val accessToken = params["access_token"]
+                val refreshToken = params["refresh_token"]
+
+                when (type) {
+                    "recovery" -> {
+                        if (!accessToken.isNullOrBlank() && !refreshToken.isNullOrBlank()) {
+                            SupabaseProvider.client.auth.importAuthToken(
+                                accessToken = accessToken,
+                                refreshToken = refreshToken
+                            )
+                            println("🔑 Sesión restaurada desde enlace de recuperación.")
+                        } else {
+                            println("⚠️ Tokens de recuperación inválidos o ausentes.")
+                        }
+
+                        navController.navigate("resetPassword") {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
+                    }
+
+                    else -> {
+                        SupabaseProvider.client.auth.exchangeCodeForSession(fullUri)
+                        val perfil = obtenerPerfilUsuarioActual()
+                        val destino = if (perfil?.rol == "Administrador") "homeAdminScreen" else "homeUserScreen"
+                        navController.navigate(destino) {
+                            popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        }
+                    }
                 }
             } catch (e: Exception) {
+                println("❌ Error procesando redirección: ${e.message}")
                 navController.navigate("login") {
                     popUpTo(navController.graph.startDestinationId) { inclusive = true }
                 }

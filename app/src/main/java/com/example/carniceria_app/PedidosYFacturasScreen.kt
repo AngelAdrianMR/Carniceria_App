@@ -10,7 +10,10 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.carniceria.shared.shared.models.utils.*
 import kotlinx.coroutines.launch
@@ -33,12 +36,15 @@ fun PedidosYFacturasScreen(
     var facturas by remember { mutableStateOf<List<Factura>>(emptyList()) }
     var cargando by remember { mutableStateOf(true) }
     var tabSeleccionada by remember { mutableStateOf(0) } // 0 = Pedidos, 1 = Facturas
-    var mostrarCarritoLateral by remember { mutableStateOf(false) }
+    var mostrarCarritoLateral by remember { mutableStateOf(true) }
+    var perfilUsuario by remember { mutableStateOf<PerfilUsuario?>(null) }
 
+    val carritoViewModel: CarritoViewModel = viewModel()
     val scope = rememberCoroutineScope()
     val service = remember { SupabaseService(SupabaseProvider.client) }
     val colors = MaterialTheme.colorScheme
 
+    val context = LocalContext.current
 
     // ---------------------------------------------------
     // ⚙️ Cargar datos del usuario
@@ -48,6 +54,8 @@ fun PedidosYFacturasScreen(
             try {
                 pedidos = service.obtenerPedidosUsuario(usuarioId)
                 facturas = service.obtenerFacturasUsuario(usuarioId)
+                carritoViewModel.cargarCarritoLocal(context)
+                perfilUsuario = obtenerPerfilUsuarioActual()
             } catch (e: Exception) {
                 println("❌ Error cargando datos: ${e.message}")
             } finally {
@@ -71,7 +79,8 @@ fun PedidosYFacturasScreen(
                 onNavigationToConfiguracion = { navController.navigate("configuracionScreen") },
                 onNavigationToSobreNosotros = { navController.navigate("sobreNosotrosScreen") },
                 onLogout = onLogout,
-                mostrarCarrito = false,
+                mostrarCarrito = true,
+                onAbrirCarrito = { mostrarCarritoLateral = true },
                 mostrarBotonEditar = false,
                 onEditarPerfil = {
                     navController.navigate("editarPerfilScreen")
@@ -305,6 +314,26 @@ fun PedidosYFacturasScreen(
                     }
                 }
             }
+        }
+    }
+
+    // 🧺 Carrito lateral (igual que admin)
+    if (mostrarCarritoLateral) {
+        perfilUsuario?.let { perfil ->
+            CarritoLateral(
+                carrito = carritoViewModel.carrito,
+                direccionUsuario = perfil.direccionCompleta,
+                usuarioId = perfil.id,
+                carritoViewModel = carritoViewModel,
+                codigoPostalUsuario = perfil.codigo_postal,
+                onCerrar = { mostrarCarritoLateral = false },
+                onEliminarItem = { item ->
+                    item.producto?.id?.let {
+                        carritoViewModel.eliminarProducto(item, context)
+                    }
+                },
+                modifier = Modifier.zIndex(3f)
+            )
         }
     }
 }
