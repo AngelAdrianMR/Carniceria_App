@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -26,23 +27,25 @@ import androidx.navigation.navArgument
 import com.carniceria.shared.shared.models.utils.*
 import com.example.carniceria_app.data.ThemePreferences
 import com.example.carniceria_app.ui.theme.CarniceriaAppTheme
+import com.example.carniceria_app.ui.theme.DarkGreen
+import com.example.carniceria_app.ui.theme.DarkRed
+import com.example.carniceria_app.ui.theme.brown
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.providers.Google
-import io.github.jan.supabase.auth.providers.invoke
-import io.github.jan.supabase.auth.user.UserSession
-import io.ktor.client.request.invoke
-import io.ktor.http.invoke
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+private val deepLinkUri = MutableStateFlow<Uri?>(null)
 
 class MainActivity : ComponentActivity() {
 
-    private var navControllerRef: NavHostController? = null
-
-    private fun startGoogleOAuth() {
-        lifecycleScope.launch {
-            SupabaseProvider.client.auth.signInWith(Google, redirectUrl = "myapp://auth-callback")
-        }
-    }
+    //private var navControllerRef: NavHostController? = null
 
     private fun navigateAfterLogin(navController: NavHostController) {
         lifecycleScope.launch {
@@ -57,8 +60,9 @@ class MainActivity : ComponentActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        deepLinkUri.value = intent?.data
         com.google.firebase.FirebaseApp.initializeApp(this)
-        val startIntent = intent
+        //val startIntent = intent
 
         // 🔔 Permiso de notificaciones
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -71,7 +75,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val navController = rememberNavController()
-            navControllerRef = navController
+            //navControllerRef = navController
+            val authViewModel: AuthViewModel = viewModel()
 
             // 🧠 DataStore para recordar el tema
             val themePrefs = remember { ThemePreferences(applicationContext) }
@@ -89,19 +94,28 @@ class MainActivity : ComponentActivity() {
                 lifecycleScope.launch { themePrefs.saveDarkTheme(value) }
             }
 
-            // ✅ Deep Link inicial
-            LaunchedEffect(Unit) {
-                startIntent?.data?.let { uri ->
-                    handleAuthRedirectUri(uri, navController)
+            var startDestination by rememberSaveable { mutableStateOf<String?>(null) }
+            val pendingUri by deepLinkUri.collectAsState()
+
+            LaunchedEffect(startDestination, pendingUri) {
+                if (startDestination != null && pendingUri != null) {
+                    handleAuthRedirectUri(pendingUri!!, navController)
+                    deepLinkUri.value = null // importante: evitar procesarlo 2 veces
                 }
             }
 
-            var startDestination by rememberSaveable { mutableStateOf<String?>(null) }
+            // ✅ Deep Link inicial
+            /**LaunchedEffect(Unit) {
+                startIntent?.data?.let { uri ->
+                    handleAuthRedirectUri(uri, navController)
+                }
+            }**/
 
             // 🧾 Detectar sesión activa
             LaunchedEffect(Unit) {
+                val remember = authViewModel.rememberMe.value
                 val session = SupabaseProvider.client.auth.currentSessionOrNull()
-                startDestination = if (session != null) {
+                startDestination = if (session != null && remember) {
                     val perfil = obtenerPerfilUsuarioActual()
                     when (perfil?.rol) {
                         "Administrador" -> "homeAdminScreen"
@@ -123,8 +137,11 @@ class MainActivity : ComponentActivity() {
                                 onLoginSuccess = {
                                     lifecycleScope.launch {
                                         val perfil = obtenerPerfilUsuarioActual()
+                                        Log.i("DEBUG_LOGIN", "Perfil usuario → rol=${perfil?.rol}, empresa_id=${perfil?.empresa_id}")
                                         val dest = if (perfil?.rol == "Administrador")
                                             "homeAdminScreen"
+                                        else if (perfil?.rol == "Empresa")
+                                            "homeEmpresaScreen/${perfil.empresa_id}"
                                         else
                                             "homeUserScreen"
                                         navController.navigate(dest) {
@@ -132,7 +149,8 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 },
-                                onNavigateToRegister = { navController.navigate("register") }
+                                onNavigateToRegister = { navController.navigate("register") },
+                                authViewModel = authViewModel
                             )
                         }
 
@@ -167,6 +185,153 @@ class MainActivity : ComponentActivity() {
                                 }
                             })
                         }
+
+                        composable(
+                            "homeEmpresaScreen/{empresaId}",
+                            arguments = listOf(navArgument("empresaId") { type = NavType.LongType })
+                        ) { backStackEntry ->
+                            val empresaId = backStackEntry.arguments!!.getLong("empresaId")
+                            HomeEmpresaScreen(
+                                navController = navController,
+                                empresaId = empresaId,
+                                onLogout = {
+                                    lifecycleScope.launch {
+                                        SupabaseProvider.client.auth.signOut()
+                                        navController.navigate("login") {
+                                            popUpTo("homeEmpresaScreen/$empresaId") { inclusive = true }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+                        composable(
+                            route = "productosEmpresaScreen/{empresaId}",
+                            arguments = listOf(navArgument("empresaId") { type = NavType.LongType })
+                        ) { entry ->
+                            val empresaId = entry.arguments!!.getLong("empresaId")
+                            ProductosEmpresaScreen(
+                                navController = navController,
+                                onLogout = {
+                                    lifecycleScope.launch {
+                                        SupabaseProvider.client.auth.signOut()
+                                        navController.navigate("login") {
+                                            popUpTo("productosEmpresaScreen/$empresaId") { inclusive = true }
+                                        }
+                                    }
+                                },
+                                empresaId = empresaId
+                            )
+                        }
+
+                        composable(
+                            route = "perfilEmpresaScreen/{empresaId}",
+                            arguments = listOf(navArgument("empresaId") { type = NavType.LongType })
+                        ) { entry ->
+                            val empresaId = entry.arguments!!.getLong("empresaId")
+                            PerfilEmpresaScreen(
+                                navController = navController,
+                                empresaId = empresaId,
+                                onLogout = {
+                                    lifecycleScope.launch {
+                                        SupabaseProvider.client.auth.signOut()
+                                        navController.navigate("login") {
+                                            popUpTo("perfilEmpresaScreen/$empresaId") { inclusive = true }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+                        composable(
+                            route = "configEmpresaScreen/{empresaId}",
+                            arguments = listOf(navArgument("empresaId") { type = NavType.LongType })
+                        ) { entry ->
+
+                            val empresaId = entry.arguments!!.getLong("empresaId")
+
+                            val authViewModel: AuthViewModel = viewModel()
+
+                            // 🔥 Importante: leer el tema actual desde tus preferencias
+                            val themePrefs = remember { ThemePreferences(applicationContext) }
+                            val darkThemeFlow = themePrefs.darkThemeFlow.collectAsState(initial = false)
+                            val isDarkTheme = darkThemeFlow.value
+
+                            // función para guardar el cambio de tema
+                            fun cambiarTema(value: Boolean) {
+                                lifecycleScope.launch { themePrefs.saveDarkTheme(value) }
+                            }
+
+                            ConfiguracionEmpresaScreen(
+                                navController = navController,
+                                empresaId = empresaId,
+                                authViewModel = authViewModel,
+                                isDarkTheme = isDarkTheme,
+                                onThemeChange = { cambiarTema(it) },
+                                onLogout = {
+                                    lifecycleScope.launch {
+                                        SupabaseProvider.client.auth.signOut()
+                                        navController.navigate("login") {
+                                            popUpTo("configEmpresaScreen/$empresaId") { inclusive = true }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+
+                        composable(
+                            route = "sobreNosotrosEmpresaScreen/{empresaId}",
+                            arguments = listOf(navArgument("empresaId") { type = NavType.LongType })
+                        ) { entry ->
+                            val empresaId = entry.arguments!!.getLong("empresaId")
+                            SobreNosotrosEmpresaScreen(
+                                navController = navController,
+                                empresaId = empresaId,
+                                onLogout = {
+                                    lifecycleScope.launch {
+                                        SupabaseProvider.client.auth.signOut()
+                                        navController.navigate("login") {
+                                            popUpTo("sobreNosotrosEmpresaScreen/$empresaId") { inclusive = true }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+                        composable("faqScreen") {
+                            FaqScreen(
+                                navController = navController,
+                                onLogout = {
+                                    lifecycleScope.launch {
+                                        SupabaseProvider.client.auth.signOut()
+                                        navController.navigate("login") {
+                                            popUpTo("faqScreen") { inclusive = true }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
+                        composable(
+                            route = "faqEmpresaScreen/{empresaId}",
+                            arguments = listOf(navArgument("empresaId") { type = NavType.LongType })
+                        ) { entry ->
+                            val empresaId = entry.arguments!!.getLong("empresaId")
+                            FaqEmpresaScreen(
+                                navController = navController,
+                                empresaId = empresaId,
+                                onLogout = {
+                                    lifecycleScope.launch {
+                                        SupabaseProvider.client.auth.signOut()
+                                        navController.navigate("login") {
+                                            popUpTo("faqEmpresaScreen/$empresaId") { inclusive = true }
+                                        }
+                                    }
+                                }
+                            )
+                        }
+
 
                         composable("productosAdmin") { ProductosAdminScreen(navController, onLogout = {
                             lifecycleScope.launch {
@@ -275,20 +440,34 @@ class MainActivity : ComponentActivity() {
                         }) }
 
                         composable(
-                            route = "productoDetalle/{productoId}",
-                            arguments = listOf(navArgument("productoId") { type = NavType.LongType })
+                            route = "productoDetalle/{productoId}?empresaId={empresaId}",
+                            arguments = listOf(
+                                navArgument("productoId") { type = NavType.LongType },
+                                navArgument("empresaId") {
+                                    type = NavType.StringType
+                                    nullable = true
+                                    defaultValue = null
+                                }
+                            )
                         ) { backStackEntry ->
                             val productoId = backStackEntry.arguments?.getLong("productoId") ?: return@composable
+
+                            val empresaId: Long? = backStackEntry.arguments
+                                ?.getString("empresaId")
+                                ?.toLongOrNull()
+
                             val usuario = obtenerUsuarioActual()
                             if (usuario != null) {
                                 ProductoDetalleScreen(
                                     navController = navController,
                                     productoId = productoId,
                                     usuarioId = usuario.id,
-                                    service = SupabaseService(SupabaseProvider.client)
+                                    service = SupabaseService(SupabaseProvider.client),
+                                    empresaId = empresaId
                                 )
                             }
                         }
+
 
                         composable(
                             route = "promocionDetalle/{promoId}",
@@ -382,6 +561,30 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        composable(
+                            route = "pedidosYFacturasEmpresas/{empresaId}",
+                            arguments = listOf(navArgument("empresaId") { type = NavType.LongType })
+                        ) { entry ->
+                            val empresaId = entry.arguments!!.getLong("empresaId")
+                            val usuario = obtenerUsuarioActual()
+                            usuario?.id?.let { id ->
+                                PedidosYFacturasEmpresaScreen(
+                                    empresaId = empresaId,
+                                    usuarioId = id,
+                                    navController = navController,
+                                    onLogout = {
+                                        lifecycleScope.launch {
+                                            SupabaseProvider.client.auth.signOut()
+                                            navController.navigate("login") {
+                                                popUpTo("homeEmpresaScreen/$empresaId") { inclusive = true }
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+                        }
+
+
                         composable("pedidosAdmin") { PedidosAdminScreen(navController = navController, onLogout = {
                             lifecycleScope.launch {
                                 SupabaseProvider.client.auth.signOut()
@@ -422,6 +625,8 @@ class MainActivity : ComponentActivity() {
                         composable("resetPassword") {
                             ResetPasswordScreen(navController)
                         }
+
+
 
                     }
                 } else {
@@ -466,7 +671,7 @@ class MainActivity : ComponentActivity() {
                     else -> {
                         SupabaseProvider.client.auth.exchangeCodeForSession(fullUri)
                         val perfil = obtenerPerfilUsuarioActual()
-                        val destino = if (perfil?.rol == "Administrador") "homeAdminScreen" else "homeUserScreen"
+                        val destino = if (perfil?.rol == "Administrador") "homeAdminScreen" else if (perfil?.rol == "Empresa") "homeEmpresaScreen/${perfil.empresa_id}" else "homeUserScreen"
                         navController.navigate(destino) {
                             popUpTo(navController.graph.startDestinationId) { inclusive = true }
                         }
@@ -481,14 +686,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent) {
+    /**override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.data?.let { uri ->
             navControllerRef?.let { handleAuthRedirectUri(uri, it) }
         }
+    }**/
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        deepLinkUri.value = intent.data
     }
-}
 
+}
 // 📦 Pantalla de carga
 @Composable
 fun LoadingScreen() {
@@ -504,6 +714,9 @@ fun LoadingScreen() {
     }
 }
 
+private val BotonMinHeight = 56.dp
+private val BotonPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+
 // Botón reutilizable
 @Composable
 fun BotonTransparenteNegro(
@@ -512,19 +725,107 @@ fun BotonTransparenteNegro(
     texto: String
 ) {
     val colors = MaterialTheme.colorScheme
-    val borderColor = colors.onBackground
-    val contentColor = colors.onBackground
 
-    OutlinedButton(
-        onClick = onClick as () -> Unit,
-        modifier = modifier,
-        colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = Color.Transparent,
-            contentColor = contentColor
-        ),
-        border = BorderStroke(1.dp, borderColor)
+    Button(
+        onClick = onClick,
+        modifier = modifier.defaultMinSize(minHeight = BotonMinHeight),
+        shape = MaterialTheme.shapes.medium,
+        contentPadding = BotonPadding,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = brown,
+            contentColor = colors.onPrimary
+        )
     ) {
-        Text(texto, color = contentColor)
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
+// Botón reutilizable
+@Composable
+fun BotonAñadir(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    texto: String
+) {
+    val colors = MaterialTheme.colorScheme
+
+    Button(
+        onClick = onClick,
+        modifier = modifier.defaultMinSize(minHeight = BotonMinHeight),
+        shape = MaterialTheme.shapes.medium,
+        contentPadding = BotonPadding,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = DarkGreen,
+            contentColor = colors.onPrimary
+        )
+    ) {
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+fun BotonRojo(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    texto: String
+) {
+    val colors = MaterialTheme.colorScheme
+
+    Button(
+        onClick = onClick,
+        modifier = modifier.defaultMinSize(minHeight = BotonMinHeight),
+        shape = MaterialTheme.shapes.medium,
+        contentPadding = BotonPadding,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = DarkRed,
+            contentColor = colors.onPrimary
+        )
+    ) {
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+fun BotonFiltro(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    texto: String,
+    containerColor: Color = Color.Transparent,
+    contentColor: Color = MaterialTheme.colorScheme.onBackground,
+    borderColor: Color = MaterialTheme.colorScheme.onBackground
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier.defaultMinSize(minHeight = BotonMinHeight),
+        shape = MaterialTheme.shapes.medium,
+        contentPadding = BotonPadding,
+        border = BorderStroke(1.dp, borderColor),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = containerColor,
+            contentColor = contentColor
+        )
+    ) {
+        Text(
+            text = texto,
+            color = contentColor,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}

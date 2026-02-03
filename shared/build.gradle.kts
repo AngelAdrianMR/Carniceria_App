@@ -29,6 +29,8 @@ kotlin {
                 implementation("io.github.jan-tennert.supabase:auth-kt:3.1.1")       // ✅ para login/email/google
                 implementation("io.github.jan-tennert.supabase:functions-kt:3.1.1")
                 implementation("io.github.jan-tennert.supabase:storage-kt:3.1.1")
+                //implementation("io.github.jan-tennert.supabase:auth-admin-kt:3.1.1")
+
             }
         }
         val androidMain by getting {

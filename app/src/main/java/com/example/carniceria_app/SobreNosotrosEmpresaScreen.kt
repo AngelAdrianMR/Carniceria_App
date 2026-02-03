@@ -19,23 +19,30 @@ import com.example.carniceria_app.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SobreNosotrosScreen(navController: NavHostController, onLogout: () -> Unit,) {
+fun SobreNosotrosEmpresaScreen(navController: NavHostController, onLogout: () -> Unit,empresaId: Long) {
     Scaffold(
         topBar = {
-            UserHeader(
+            EmpresaHeader(
                 navController = navController,
-                titulo = "Nuestra historia",
-                onNavigateHome = { navController.navigate("homeUserScreen") },
-                onNavigationToPerfil = { navController.navigate("perfilUser") },
-                onNavigationToProductos = { navController.navigate("productosUser") },
-                onNavigationToPedidos = { navController.navigate("pedidosYFacturas") },
-                onNavigationToConfiguracion = { navController.navigate("configuracionScreen") },
-                onNavigationToSobreNosotros = { navController.navigate("sobreNosotrosScreen") },
-                onLogout = onLogout,
+                titulo = "Pedidos Empresa",
                 mostrarCarrito = false,
-                mostrarBotonEditar = false,
-                onEditarPerfil = { navController.navigate("editarPerfilScreen") },
-                onNavigationToFaq = { navController.navigate("faqScreen") }
+                onLogout = onLogout,
+
+                onNavigateHomeEmpresa = { navController.navigate("homeEmpresaScreen/$empresaId") },
+
+                onNavigateEmpresaProductos = { navController.navigate("productosEmpresaScreen/$empresaId") },
+
+                onNavigateEmpresaPedidos = {
+                    navController.navigate("pedidosYFacturasEmpresas/$empresaId")
+                },
+
+                onNavigateEmpresaPerfil = { navController.navigate("perfilEmpresaScreen/$empresaId") },
+
+                onNavigateEmpresaConfig = { navController.navigate("configEmpresaScreen/$empresaId") },
+
+                onNavigateEmpresaSobreNosotros = { navController.navigate("sobreNosotrosEmpresaScreen/$empresaId") },
+                onNavigationToFaqEmpresa = { navController.navigate("FaqEmpresaScreen/$empresaId")}
+
             )
         }
     ) { padding ->

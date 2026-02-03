@@ -14,22 +14,39 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.carniceria.shared.shared.models.utils.Product
+import com.carniceria.shared.shared.models.utils.ProductEmpresa
 
 @Composable
 fun SeleccionCantidadBottomSheet(
-    producto: Product,
+    producto: Product? = null,
+    productoEmpresa: ProductEmpresa? = null,
     onDismiss: () -> Unit,
     onConfirmar: () -> Unit
 ) {
-    var cantidadUnidad by remember { mutableStateOf(1) }
+    // ------------------------------------------------------------
+    // 🔒 SEGURIDAD: siempre debe venir un producto válido
+    // ------------------------------------------------------------
+    if (producto == null && productoEmpresa == null) {
+        onDismiss()
+        return
+    }
 
-    // 🔹 Cambiamos el valor inicial mínimo a 0.5 kg
-    var cantidadKilos by remember { mutableStateOf("0.5") }
-
-    var mensajePreparacion by remember { mutableStateOf("") }
-
-    val carritoViewModel: CarritoViewModel = viewModel()
     val context = LocalContext.current
+    val carritoViewModel: CarritoViewModel = viewModel()
+
+    // ------------------------------------------------------------
+    // 📌 Datos comunes extraídos automáticamente
+    // ------------------------------------------------------------
+    val nombreProducto = producto?.nombre_producto ?: productoEmpresa!!.nombre_producto
+    val unidad = producto?.unidad_medida ?: productoEmpresa!!.unidad_medida ?: "Unidad"
+    val stock = producto?.stock_producto ?: productoEmpresa!!.stock_producto ?: 0.0
+
+    // ------------------------------------------------------------
+    // 🔢 Estados
+    // ------------------------------------------------------------
+    var cantidadUnidad by remember { mutableStateOf(1) }
+    var cantidadKilos by remember { mutableStateOf("0.5") }
+    var mensajePreparacion by remember { mutableStateOf("") }
 
     Column(
         modifier = Modifier
@@ -38,30 +55,29 @@ fun SeleccionCantidadBottomSheet(
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "Añadir ${producto.nombre_producto}",
-            style = MaterialTheme.typography.titleMedium
-        )
 
+        // ------------------------------------------------------------
+        // 📝 Título
+        // ------------------------------------------------------------
+        Text("Añadir $nombreProducto", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
 
-        // 🔹 Stock disponible
         Text(
-            text = "Stock disponible: ${producto.stock_producto ?: 0} ${producto.unidad_medida?.lowercase() ?: ""}",
+            text = "Stock disponible: $stock ${unidad.lowercase()}",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary
         )
-
         Spacer(Modifier.height(12.dp))
 
-        // 👇 Cantidad
-        if (producto.unidad_medida.equals("Kilo", ignoreCase = true)) {
+        // ------------------------------------------------------------
+        // ⚖️ Cantidad según unidad
+        // ------------------------------------------------------------
+        if (unidad.equals("Kilo", ignoreCase = true)) {
             OutlinedTextField(
                 value = cantidadKilos,
                 onValueChange = { nueva ->
-                    if (nueva.matches(Regex("^\\d*\\.?\\d*\$"))) {
+                    if (nueva.matches(Regex("^\\d*\\.?\\d*\$")))
                         cantidadKilos = nueva
-                    }
                 },
                 label = { Text("Cantidad en Kg (mínimo 0.5)") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -73,18 +89,17 @@ fun SeleccionCantidadBottomSheet(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                BotonTransparenteNegro(
+                BotonRojo(
                     onClick = { if (cantidadUnidad > 1) cantidadUnidad-- },
                     modifier = Modifier.weight(1f),
                     texto = "-"
                 )
                 Spacer(Modifier.width(12.dp))
-                Text(
-                    text = "$cantidadUnidad",
-                    style = MaterialTheme.typography.titleMedium
-                )
+
+                Text("$cantidadUnidad", style = MaterialTheme.typography.titleMedium)
+
                 Spacer(Modifier.width(12.dp))
-                BotonTransparenteNegro(
+                BotonAñadir(
                     onClick = { cantidadUnidad++ },
                     modifier = Modifier.weight(1f),
                     texto = "+"
@@ -94,6 +109,9 @@ fun SeleccionCantidadBottomSheet(
 
         Spacer(Modifier.height(20.dp))
 
+        // ------------------------------------------------------------
+        // 📝 Mensaje opcional para preparar
+        // ------------------------------------------------------------
         OutlinedTextField(
             value = mensajePreparacion,
             onValueChange = { mensajePreparacion = it },
@@ -103,51 +121,57 @@ fun SeleccionCantidadBottomSheet(
 
         Spacer(Modifier.height(20.dp))
 
+        // ------------------------------------------------------------
+        // 🛒 BOTÓN: Añadir al carrito
+        // ------------------------------------------------------------
         BotonTransparenteNegro(
             onClick = {
-                val cantidadFinal = if (producto.unidad_medida.equals("Kilo", true)) {
+                val cantidadFinal = if (unidad.equals("Kilo", true)) {
                     (cantidadKilos.toDoubleOrNull() ?: 0.5).coerceAtLeast(0.5)
-                } else {
-                    cantidadUnidad.toDouble()
-                }
+                } else cantidadUnidad.toDouble()
 
-                val stockDisponible = producto.stock_producto ?: 0.0
-                val nombreUnidad = producto.unidad_medida?.lowercase() ?: "unidad"
-
+                // ❌ Validaciones
                 when {
-                    cantidadFinal <= 0 -> {
+                    cantidadFinal <= 0 ->
                         Toast.makeText(context, "Cantidad no válida.", Toast.LENGTH_SHORT).show()
-                    }
 
-                    cantidadFinal > stockDisponible -> {
+                    cantidadFinal > stock ->
                         Toast.makeText(
                             context,
-                            "❌ Solo hay $stockDisponible $nombreUnidad(s) disponibles.",
+                            "❌ Solo hay $stock ${unidad.lowercase()}(s) disponibles.",
                             Toast.LENGTH_LONG
                         ).show()
-                    }
 
                     else -> {
-                        val anadido = carritoViewModel.agregarAlCarrito(
-                            producto,
-                            cantidadFinal,
-                            mensajePreparacion.ifBlank { null }
-                        )
+                        // ------------------------------------------------------------
+                        // 📌 Selección según tipo producto
+                        // ------------------------------------------------------------
+                        val añadido = when {
+                            productoEmpresa != null -> carritoViewModel.agregarProductoEmpresaAlCarrito(
+                                productoEmpresa,
+                                cantidadFinal,
+                                mensajePreparacion.ifBlank { null }
+                            )
 
-                        if (anadido) {
+                            producto != null -> carritoViewModel.agregarAlCarrito(
+                                producto,
+                                cantidadFinal,
+                                mensajePreparacion.ifBlank { null }
+                            )
+
+                            else -> false
+                        }
+
+                        if (añadido) {
                             carritoViewModel.guardarCarritoLocal(context)
                             Toast.makeText(
                                 context,
-                                "✅ ${producto.nombre_producto} añadido al carrito.",
+                                "✅ $nombreProducto añadido al carrito.",
                                 Toast.LENGTH_SHORT
                             ).show()
                             onConfirmar()
                         } else {
-                            Toast.makeText(
-                                context,
-                                "⚠️ No se pudo añadir el producto al carrito.",
-                                Toast.LENGTH_SHORT
-                            ).show()
+                            Toast.makeText(context, "⚠️ No se pudo añadir el producto.", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }
@@ -155,6 +179,5 @@ fun SeleccionCantidadBottomSheet(
             modifier = Modifier.fillMaxWidth(),
             texto = "Añadir al carrito"
         )
-
     }
 }

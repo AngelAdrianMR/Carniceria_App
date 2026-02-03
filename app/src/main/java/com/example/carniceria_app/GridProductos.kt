@@ -36,7 +36,10 @@ fun GridProductos(productos: List<Product>,
                 elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                 modifier = Modifier
                     .padding(6.dp)
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
             ) {
                 Column(
                     modifier = Modifier
@@ -78,10 +81,11 @@ fun GridProductos(productos: List<Product>,
                     BotonTransparenteNegro(
                         onClick = { onAddClick(producto) },
                         modifier = Modifier.fillMaxWidth(),
-                        texto = "Añadir"
+                        texto = "+🛒"
                     )
                 }
             }
         }
     }
 }
+

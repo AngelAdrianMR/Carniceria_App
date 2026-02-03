@@ -11,6 +11,16 @@ import io.ktor.utils.io.InternalAPI
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.Json
 import io.github.jan.supabase.postgrest.query.Columns
+import io.github.jan.supabase.postgrest.rpc
+import io.ktor.client.request.header
+import io.ktor.client.request.headers
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+import kotlinx.atomicfu.TraceBase.None.append
 
 
 class SupabaseService(private val supabase: SupabaseClient) {
@@ -224,6 +234,18 @@ class SupabaseService(private val supabase: SupabaseClient) {
             .decodeList<Pedido>()
         if (pedidos.isEmpty()) return emptyList()
         return pedidos.map { cargarPedidoDetalle(it, incluirUsuario = false) }
+    }
+
+    suspend fun obtenerPedidosUsuarioDesdeVista(usuarioId: String): List<PedidoDetalle> {
+        return try {
+            client
+                .from("pedido_detalle_view")
+                .select{ filter{ eq("perfil_usuario->>id", usuarioId)}} // filtra por usuario actual
+                .decodeList<PedidoDetalle>()
+        } catch (e: Exception) {
+            println("❌ Error al obtener pedidos desde la vista: ${e.message}")
+            emptyList()
+        }
     }
 
     suspend fun obtenerFacturasUsuario(usuarioId: String): List<Factura> {
@@ -457,6 +479,182 @@ class SupabaseService(private val supabase: SupabaseClient) {
     data class PerfilUsuarioToken(
         val fcm_token: String? = null
     )
+
+    //EMPRESAS
+    suspend fun getProductosEmpresa(empresaId: Long): List<ProductEmpresa> {
+        return try {
+            val result = supabase.postgrest
+                .rpc(
+                    function = "obtener_productos_empresa",
+                    parameters = mapOf("empresa" to empresaId)
+                )
+                .decodeList<ProductEmpresa>()
+
+            println("✅ Productos obtenidos para empresa $empresaId: ${result.size}")
+            result
+        } catch (e: Exception) {
+            println("❌ Error al obtener productos de empresa: ${e.message}")
+            emptyList()
+        }
+    }
+
+
+    suspend fun updatePrecioTodasEmpresas(productoId: Long, nuevoPrecio: Double): Boolean {
+        return try {
+            SupabaseProvider.adminClient.postgrest.rpc(
+                function = "actualizar_precio_todas_empresas",
+                parameters = mapOf(
+                    "producto" to productoId,
+                    "nuevo_precio" to nuevoPrecio
+                )
+            )
+
+            println("✅ Precio actualizado globalmente para producto $productoId")
+            true
+        } catch (e: Exception) {
+            println("❌ Error al actualizar precios globales: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun obtenerEmpresasAdmin(): List<EmpresaAdmin> {
+        return try {
+            client.from("empresas").select().decodeList<EmpresaAdmin>()
+
+        } catch (e: Exception) {
+            println("❌ Error al obtener empresas: ${e.message}")
+            emptyList()
+        }
+    }
+
+    suspend fun crearUsuarioEmpresa(email: String, password: String): String? {
+        return try {
+            val response = SupabaseProvider.adminClient.httpClient.post(
+                "${SupabaseEnv.URL}/auth/v1/admin/users"
+            ) {
+                headers {
+                    append("apikey", SupabaseEnv.SERVICE_ROLE_KEY)
+                    append("Authorization", "Bearer ${SupabaseEnv.SERVICE_ROLE_KEY}")
+                    append(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+                }
+                setBody("""{"email":"$email","password":"$password","email_confirm":false}""")
+            }
+
+            val bodyText = response.bodyAsText()
+            println("📬 Respuesta Supabase Auth → ${response.status}: $bodyText")
+
+            if (!response.status.isSuccess()) return null
+
+            val json = Json.parseToJsonElement(bodyText).jsonObject
+            val userId = json["id"]?.jsonPrimitive?.content
+            println("✅ Usuario empresa creado con ID: $userId")
+
+            userId
+        } catch (e: Exception) {
+            println("❌ Excepción creando usuario empresa: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun guardarPrecioEmpresa(
+        empresaId: Long,
+        productoId: Long,
+        nuevoPrecio: Double,
+        personalizado: Boolean = true,
+        destacado: Boolean = false
+    ): Boolean {
+        return try {
+
+            // 1️⃣ Buscamos si ya existe un precio personalizado para ese producto y empresa
+            val existente = SupabaseProvider.adminClient.postgrest["empresa_productos"]
+                .select()
+                {
+                    filter {
+                        eq("empresa_id", empresaId)
+                        eq("producto_id", productoId)
+                    }
+                }
+                .decodeList<EmpresaProducto>()
+                .firstOrNull()
+
+            if (existente == null) {
+
+                // 2️⃣ No existe → INSERT
+                SupabaseProvider.adminClient.postgrest["empresa_productos"].insert(
+                    EmpresaProducto(
+                        empresa_id = empresaId,
+                        producto_id = productoId,
+                        precio_empresa = nuevoPrecio,
+                        personalizado = personalizado,
+                        destacado = destacado
+                    )
+                )
+
+                println("🟢 INSERT empresa_productos → empresaId=$empresaId productoId=$productoId precio=$nuevoPrecio")
+
+            } else {
+
+                // 3️⃣ Sí existe → UPDATE
+                SupabaseProvider.adminClient.postgrest["empresa_productos"].update(
+                    EmpresaProducto(
+                        id = existente.id,
+                        empresa_id = empresaId,
+                        producto_id = productoId,
+                        precio_empresa = nuevoPrecio,
+                        personalizado = personalizado,
+                        destacado = destacado,
+                        actualizado_en = null // lo puede manejar Supabase por trigger si tienes uno
+                    )
+                ) {
+                    filter {
+                        eq("id", existente.id!!)
+                    }
+                }
+
+                println("🟡 UPDATE empresa_producto → id=${existente.id} nuevoPrecio=$nuevoPrecio")
+            }
+
+            true
+
+        } catch (e: Exception) {
+            println("❌ Error en guardarPrecioEmpresa: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun obtenerEmpresaPorId(empresaId: Long): Empresa? {
+        return try {
+            supabase.postgrest["empresas"]
+                .select()
+                {
+                    filter {
+                        eq("id", empresaId)
+                    }
+                }
+                .decodeSingle<Empresa>()
+                .also { println("🏢 Empresa cargada: ${it.nombre_empresa}") }
+
+        } catch (e: Exception) {
+            println("❌ Error obteniendo empresa $empresaId: ${e.message}")
+            null
+        }
+    }
+
+    suspend fun obtenerProductoEmpresaPorId(empresaId: Long, productoId: Long): ProductEmpresa? {
+        return try {
+            supabase.postgrest
+                .rpc(
+                    function = "obtener_productos_empresa",
+                    parameters = mapOf("empresa" to empresaId)
+                )
+                .decodeList<ProductEmpresa>()
+                .firstOrNull { it.id == productoId }
+        } catch (e: Exception) {
+            println("❌ Error obteniendo producto empresa por id: ${e.message}")
+            null
+        }
+    }
+
 
 }
 

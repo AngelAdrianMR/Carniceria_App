@@ -76,6 +76,9 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.material)
+    implementation(libs.androidx.compose.ui.text)
 
     // Tests
     testImplementation(libs.junit)
@@ -126,5 +129,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 
     implementation("androidx.compose.material:material-icons-extended:1.7.5")
+
 
 }

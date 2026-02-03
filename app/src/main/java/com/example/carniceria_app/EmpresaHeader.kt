@@ -1,10 +1,6 @@
 package com.example.carniceria_app
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -12,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
@@ -32,31 +27,29 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UserHeader(
+fun EmpresaHeader(
     navController: NavHostController,
     titulo: String,
-    onLogout: () -> Unit,
     mostrarCarrito: Boolean = true,
     onAbrirCarrito: (() -> Unit)? = null,
-    mostrarBotonEditar: Boolean = false,
-    onEditarPerfil: (() -> Unit)? = null,
-    onNavigateHome: () -> Unit,
-    onNavigationToPerfil: () -> Unit,
-    onNavigationToProductos: () -> Unit,
-    onNavigationToPedidos: () -> Unit,
-    onNavigationToConfiguracion: () -> Unit,
-    onNavigationToSobreNosotros: () -> Unit,
-    onNavigationToFaq: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateHomeEmpresa: () -> Unit,
+    onNavigateEmpresaProductos: () -> Unit,
+    onNavigateEmpresaPedidos: () -> Unit,
+    onNavigateEmpresaPerfil: () -> Unit,
+    onNavigateEmpresaConfig: () -> Unit,
+    onNavigateEmpresaSobreNosotros: () -> Unit,
+    onNavigationToFaqEmpresa: () -> Unit
 ) {
-    var mostrarMenuLateral by remember { mutableStateOf(false) }
+    var mostrarMenu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    // 🔹 Barra superior tipo TopAppBar
+    // 🔹 Barra superior
     TopAppBar(
         title = { Text(titulo) },
         navigationIcon = {
-            IconButton(onClick = { mostrarMenuLateral = true }) {
-                Icon(Icons.Default.Menu, contentDescription = "Abrir menú")
+            IconButton(onClick = { mostrarMenu = true }) {
+                Icon(Icons.Default.Menu, contentDescription = "Menú")
             }
         },
         actions = {
@@ -65,23 +58,18 @@ fun UserHeader(
                     Icon(Icons.Default.ShoppingCart, contentDescription = "Carrito")
                 }
             }
-            if (mostrarBotonEditar && onEditarPerfil != null) {
-                IconButton(onClick = onEditarPerfil) {
-                    Icon(Icons.Default.Edit, contentDescription = "Editar perfil")
-                }
-            }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,      // 👈 mismo tono que la pantalla
+            containerColor = MaterialTheme.colorScheme.background,
             titleContentColor = MaterialTheme.colorScheme.onBackground,
             navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
             actionIconContentColor = MaterialTheme.colorScheme.onBackground
         )
     )
 
-    // 🔹 Panel lateral flotante con overlay
+    // 🔹 Panel lateral
     AnimatedVisibility(
-        visible = mostrarMenuLateral,
+        visible = mostrarMenu,
         enter = slideInHorizontally(initialOffsetX = { it }) + fadeIn(),
         exit = slideOutHorizontally(targetOffsetX = { it }) + fadeOut()
     ) {
@@ -89,74 +77,85 @@ fun UserHeader(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(3f)
-                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)),
-
+                .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f))
         ) {
-            // Panel real
+
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(0.6f)
-                    .shadow(elevation = 8.dp, shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant) // 🎨 mismo fondo que el carrito
+                    .shadow(
+                        elevation = 8.dp,
+                        shape = RoundedCornerShape(topEnd = 12.dp, bottomEnd = 12.dp)
+                    )
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(20.dp)
-                    .align(Alignment.CenterStart),
-
+                    .align(Alignment.CenterStart)
             ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+
                     Text(
-                        "Menú de Usuario",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        "Menú Empresa",
+                        style = MaterialTheme.typography.titleMedium
+                            .copy(color = MaterialTheme.colorScheme.primary)
                     )
 
-                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    Divider()
 
-                    // Botones con sombra ligera
                     BotonMenuLateral("🏠 Inicio") {
-                        onNavigateHome(); mostrarMenuLateral = false
+                        mostrarMenu = false
+                        onNavigateHomeEmpresa()
                     }
+
                     BotonMenuLateral("🥩 Productos") {
-                        onNavigationToProductos(); mostrarMenuLateral = false
+                        mostrarMenu = false
+                        onNavigateEmpresaProductos()
                     }
-                    BotonMenuLateral("🧾 Pedidos y Facturas") {
-                        onNavigationToPedidos(); mostrarMenuLateral = false
+
+                    BotonMenuLateral("🧾 Pedidos") {
+                        mostrarMenu = false
+                        onNavigateEmpresaPedidos()
                     }
-                    BotonMenuLateral("👤 Mi Perfil") {
-                        onNavigationToPerfil(); mostrarMenuLateral = false
+
+                    BotonMenuLateral("👤 Perfil") {
+                        mostrarMenu = false
+                        onNavigateEmpresaPerfil()
                     }
+
                     BotonMenuLateral("⚙️ Configuración") {
-                        onNavigationToConfiguracion(); mostrarMenuLateral = false
+                        mostrarMenu = false
+                        onNavigateEmpresaConfig()
                     }
+
                     BotonMenuLateral("ℹ️ Sobre Nosotros") {
-                        onNavigationToSobreNosotros(); mostrarMenuLateral = false
+                        mostrarMenu = false
+                        onNavigateEmpresaSobreNosotros()
                     }
                     BotonMenuLateral("❓ Preguntas frecuentes") {
-                        onNavigationToFaq(); mostrarMenuLateral = false
+                        onNavigationToFaqEmpresa(); mostrarMenu = false
                     }
 
-                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                    Divider()
 
                     BotonMenuRojo(
-                        "🚪 Cerrar sesión",
-                        color = MaterialTheme.colorScheme.error
+                        texto = "🚪 Cerrar sesión",
+                        color = MaterialTheme.colorScheme.error,
                     ) {
                         scope.launch {
                             SupabaseProvider.client.auth.signOut()
                             onLogout()
                         }
                     }
-                    val isDarkTheme = isSystemInDarkTheme()
-                    val logoRes = if (isDarkTheme) R.drawable.logo_white else R.drawable.logo_black
 
                     Spacer(Modifier.height(50.dp))
 
+                    val logoRes =
+                        if (isSystemInDarkTheme()) R.drawable.logo_white else R.drawable.logo_black
+
                     Image(
                         painter = painterResource(id = logoRes),
-                        contentDescription = "Logo Carnicería",
+                        contentDescription = "Logo",
                         modifier = Modifier
                             .size(80.dp)
                             .align(Alignment.CenterHorizontally),
@@ -164,9 +163,8 @@ fun UserHeader(
                     )
                 }
 
-                // ❌ Cerrar menú
                 IconButton(
-                    onClick = { mostrarMenuLateral = false },
+                    onClick = { mostrarMenu = false },
                     modifier = Modifier.align(Alignment.TopEnd)
                 ) {
                     Icon(Icons.Default.Close, contentDescription = "Cerrar menú")
@@ -179,43 +177,36 @@ fun UserHeader(
 @Composable
 private fun BotonMenuLateral(
     texto: String,
-    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     Button(
         onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.secondary,
-            contentColor = MaterialTheme.colorScheme.onSecondary
-        ),
-        shape = MaterialTheme.shapes.medium,
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .height(45.dp)
+            .height(45.dp),
+        shape = MaterialTheme.shapes.medium,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.secondary,
+            contentColor = MaterialTheme.colorScheme.onSecondary,
+        ),
+        elevation = ButtonDefaults.buttonElevation(2.dp)
     ) {
         Text(texto, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 @Composable
-private fun BotonMenuRojo(
-    texto: String,
-    color: androidx.compose.ui.graphics.Color = DarkRed,
-    onClick: () -> Unit
-) {
+private fun BotonMenuRojo(texto: String, color: androidx.compose.ui.graphics.Color, onClick: () -> Unit) {
     Button(
         onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(45.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = DarkRed,
             contentColor = MaterialTheme.colorScheme.onSecondary
-        ),
-        shape = MaterialTheme.shapes.medium,
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(45.dp)
+        )
     ) {
-        Text(texto, style = MaterialTheme.typography.bodyMedium)
+        Text(texto)
     }
 }

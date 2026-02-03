@@ -59,3 +59,30 @@ data class ComentarioConUsuario(
     val fecha: String? = null,
     val nombre_usuario: String? = null // 👈 se obtiene del perfil_usuario
 )
+
+@Serializable
+data class ProductEmpresa(
+    val id: Long,
+    val producto_id: Long?=null,
+    val nombre_producto: String,
+    val descripcion_producto: String? = null,
+    val categoria_producto: String? = null,
+    val imagen_producto: String? = null,
+    val unidad_medida: String? = null,
+    val stock_producto: Double? = null,
+    val precio_final: Double,
+    val destacado: Boolean,
+    val precio_base: Double?=null,
+    val personalizado: Boolean
+)
+
+@Serializable
+data class EmpresaProducto(
+    val id: Long? = null,
+    val empresa_id: Long,
+    val producto_id: Long,
+    val precio_empresa: Double,
+    val personalizado: Boolean = true,
+    val destacado: Boolean = false,
+    val actualizado_en: String? = null
+)

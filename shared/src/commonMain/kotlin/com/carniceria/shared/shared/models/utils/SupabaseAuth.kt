@@ -2,13 +2,15 @@ package com.carniceria.shared.shared.models.utils
 
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 data class SupabaseUserInfo(
     val id: String,
     val email: String,
-    val rol: String?= null
+    val rol: String?= null,
+    val empresaId: Long? =  null
 )
 
 data class PerfilConEmail(
@@ -23,11 +25,36 @@ data class PerfilConEmail(
     val pais: String? = null,
     val telefono: String? = null,
     val codigoPostal: String? = null,
+    @SerialName("direcciones_envio")
+    val direccionesEnvio: List<DireccionEnvioExtra> = emptyList()
+
 ) {
     val direccionCompleta: String
         get() = getDireccionCompleta(calle, piso, localidad, provincia, pais)
 }
 
+@Serializable
+data class PerfilUsuarioUpsertPayload(
+    val id: String,
+
+    @SerialName("nombre_completo")
+    val nombreCompleto: String,
+
+    val calle: String,
+    val piso: String,
+    val localidad: String,
+    val provincia: String,
+    val pais: String,
+    val telefono: String,
+
+    @SerialName("codigo_postal")
+    val codigoPostal: String,
+
+    val rol: String = "Cliente",
+
+    @SerialName("direcciones_envio")
+    val direccionesEnvio: List<DireccionEnvioExtra> = emptyList()
+)
 
 // ----------------- USUARIO -----------------
 
@@ -68,24 +95,27 @@ suspend fun guardarPerfilUsuario(
     pais: String,
     telefono: String,
     codigo_postal: String,
-    rol: String = "Cliente"
+    rol: String = "Cliente",
+    direcciones_envio: List<DireccionEnvioExtra> = emptyList()
 ): Boolean {
     return try {
+        val payload = PerfilUsuarioUpsertPayload(
+            id = userId,
+            nombreCompleto = nombre_completo,
+            calle = calle,
+            piso = piso,
+            localidad = localidad,
+            provincia = provincia,
+            pais = pais,
+            telefono = telefono,
+            codigoPostal = codigo_postal,
+            rol = rol,
+            direccionesEnvio = direcciones_envio
+        )
+
         SupabaseProvider.client.postgrest["perfil_usuario"]
-            .upsert(
-                mapOf(
-                    "id" to userId,
-                    "nombre_completo" to nombre_completo,
-                    "calle" to calle,
-                    "piso" to piso,
-                    "localidad" to localidad,
-                    "provincia" to provincia,
-                    "pais" to pais,
-                    "telefono" to telefono,
-                    "codigo_postal" to codigo_postal,
-                    "rol" to rol
-                )
-            )
+            .upsert(payload)
+
         true
     } catch (e: Exception) {
         println("❌ Error al guardar perfil: ${e.message}")
@@ -93,18 +123,11 @@ suspend fun guardarPerfilUsuario(
     }
 }
 
+
 // Obtener perfil + email en un único objeto
 suspend fun obtenerPerfilCompleto(): PerfilConEmail? {
     val user = obtenerUsuarioActual() ?: return null
     val perfil = obtenerPerfilUsuarioActual() ?: return null
-
-    val direccionCompleta = listOfNotNull(
-        perfil.calle,
-        perfil.piso,
-        perfil.localidad,
-        perfil.provincia,
-        perfil.pais
-    ).joinToString(", ")
 
     return PerfilConEmail(
         id = perfil.id,
@@ -117,9 +140,11 @@ suspend fun obtenerPerfilCompleto(): PerfilConEmail? {
         provincia = perfil.provincia,
         pais = perfil.pais,
         telefono = perfil.telefono,
-        codigoPostal = perfil.codigo_postal
+        codigoPostal = perfil.codigo_postal,
+        direccionesEnvio = perfil.direcciones_envio ?: emptyList() // ✅ IMPORTANTE
     )
 }
+
 
 suspend fun obtenerPerfilCompletoU(): PerfilUsuario? {
     val user = obtenerUsuarioActual() ?: return null

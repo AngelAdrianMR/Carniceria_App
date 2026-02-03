@@ -123,7 +123,7 @@ fun ResetPasswordScreen(navController: NavController) {
                             nuevaContrasena != confirmarContrasena ->
                                 error = "Las contraseñas no coinciden."
                             !nuevaContrasena.matches(Regex("^(?=.*[0-9])(?=.*[!@#\$%^&*]).{6,}$")) ->
-                                error = "Debe tener al menos 6 caracteres, un número y un símbolo."
+                                error = "Debe tener al menos 6 caracteres, un número y un símbolo (ej: @, #, $)."
                             else -> {
                                 error = null
                                 cargando = true

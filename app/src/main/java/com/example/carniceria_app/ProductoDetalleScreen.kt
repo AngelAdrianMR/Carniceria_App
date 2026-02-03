@@ -15,6 +15,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.carniceria.shared.shared.models.utils.Product
 import com.carniceria.shared.shared.models.utils.ComentarioConUsuario
+import com.carniceria.shared.shared.models.utils.ProductEmpresa
 import com.carniceria.shared.shared.models.utils.SupabaseService
 import kotlinx.coroutines.launch
 
@@ -24,19 +25,26 @@ fun ProductoDetalleScreen(
     navController: NavController,
     productoId: Long,
     usuarioId: String,
-    service: SupabaseService
+    service: SupabaseService,
+    empresaId: Long? = null
 ) {
     var producto by remember { mutableStateOf<Product?>(null) }
+    var precioEmpresa by remember { mutableStateOf<Double?>(null) }
     var comentarios by remember { mutableStateOf<List<ComentarioConUsuario>>(emptyList()) }
     var nuevoComentario by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
+    var productoEmpresa by remember { mutableStateOf<ProductEmpresa?>(null) }
 
-    // 🔹 Cargar producto y comentarios al abrir
-    LaunchedEffect(productoId) {
+    LaunchedEffect(productoId, empresaId) {
         scope.launch {
             try {
                 producto = service.obtenerProductoPorId(productoId)
                 comentarios = service.obtenerComentariosProducto(productoId)
+
+                productoEmpresa = if (empresaId != null) {
+                    service.obtenerProductoEmpresaPorId(empresaId, productoId)
+                } else null
+
             } catch (e: Exception) {
                 Log.e("ProductoDetalleScreen", "❌ Error cargando datos", e)
             }
@@ -86,7 +94,8 @@ fun ProductoDetalleScreen(
                 Spacer(Modifier.height(8.dp))
                 Text(producto!!.descripcion_producto ?: "Sin descripción")
                 Spacer(Modifier.height(8.dp))
-                Text("💶 Precio: ${producto!!.precio_venta} €")
+                val precioMostrado = productoEmpresa?.precio_final ?: producto!!.precio_venta
+                Text("💶 Precio: ${"%.2f".format(precioMostrado)} €")
                 Spacer(Modifier.height(16.dp))
 
                 Divider(thickness = 1.dp)

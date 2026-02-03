@@ -17,8 +17,9 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConfiguracionScreen(
+fun ConfiguracionEmpresaScreen(
     navController: NavHostController,
+    empresaId: Long,
     authViewModel: AuthViewModel = viewModel(),
     isDarkTheme: Boolean,
     onThemeChange: (Boolean) -> Unit,
@@ -27,10 +28,10 @@ fun ConfiguracionScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // 🔔 Estado de notificaciones (persistente con DataStore)
+    // 🔔 Estado de notificaciones (persistente)
     var notificacionesActivas by remember { mutableStateOf(true) }
 
-    // Cargar preferencia al entrar
+    // Cargar las preferencias almacenadas
     LaunchedEffect(Unit) {
         NotificationPreferences.getNotificationsEnabled(context).collect { valor ->
             notificacionesActivas = valor
@@ -39,23 +40,37 @@ fun ConfiguracionScreen(
 
     Scaffold(
         topBar = {
-            UserHeader(
+            EmpresaHeader(
                 navController = navController,
                 titulo = "Configuración",
-                onNavigateHome = { navController.navigate("homeUserScreen") },
-                onNavigationToPerfil = { navController.navigate("perfilUser") },
-                onNavigationToProductos = { navController.navigate("productosUser") },
-                onNavigationToPedidos = { navController.navigate("pedidosYFacturas") },
-                onNavigationToConfiguracion = { navController.navigate("configuracionScreen") },
-                onNavigationToSobreNosotros = { navController.navigate("sobreNosotrosScreen") },
-                onLogout = onLogout,
                 mostrarCarrito = false,
-                mostrarBotonEditar = false,
-                onEditarPerfil = { navController.navigate("editarPerfilScreen") },
-                onNavigationToFaq = { navController.navigate("faqScreen") }
+                onAbrirCarrito = {},
+                onLogout = onLogout,
+
+                onNavigateHomeEmpresa = {
+                    navController.navigate("homeEmpresaScreen/$empresaId")
+                },
+                onNavigateEmpresaProductos = {
+                    navController.navigate("productosEmpresaScreen/$empresaId")
+                },
+                onNavigateEmpresaPedidos = {
+                    navController.navigate("pedidosYFacturasEmpresas/$empresaId")
+                },
+                onNavigateEmpresaPerfil = {
+                    navController.navigate("perfilEmpresaScreen/$empresaId")
+                },
+                onNavigateEmpresaConfig = {
+                    navController.navigate("configEmpresaScreen/$empresaId")
+                },
+                onNavigateEmpresaSobreNosotros = {
+                    navController.navigate("sobreNosotrosEmpresaScreen/$empresaId")
+                },
+                onNavigationToFaqEmpresa = { navController.navigate("FaqEmpresaScreen/$empresaId")}
+
             )
         }
     ) { padding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -63,6 +78,7 @@ fun ConfiguracionScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+
             // 🌗 Tema oscuro
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -83,7 +99,7 @@ fun ConfiguracionScreen(
                 )
             }
 
-            // 🔔 Notificaciones (persistentes)
+            // 🔔 Notificaciones
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -114,7 +130,7 @@ fun ConfiguracionScreen(
                     authViewModel.cerrarSesion()
                     Toast.makeText(context, "Sesión cerrada", Toast.LENGTH_SHORT).show()
                     navController.navigate("login") {
-                        popUpTo("homeUserScreen") { inclusive = true }
+                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
                     }
                 },
                 texto = "Cerrar sesión",

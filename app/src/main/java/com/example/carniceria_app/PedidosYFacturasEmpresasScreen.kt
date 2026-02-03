@@ -34,10 +34,11 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PedidosYFacturasScreen(
+fun PedidosYFacturasEmpresaScreen(
     navController: NavHostController,
     usuarioId: String,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    empresaId: Long
 ) {
     // ---------------------------------------------------
     // 🔹 Estados principales
@@ -89,21 +90,28 @@ fun PedidosYFacturasScreen(
     // ===================================================
     Scaffold(
         topBar = {
-            UserHeader(
+            EmpresaHeader(
                 navController = navController,
-                titulo = "Pedidos y facturas.",
-                onNavigateHome = { navController.navigate("homeUserScreen") },
-                onNavigationToPerfil = { navController.navigate("perfilUser") },
-                onNavigationToProductos = { navController.navigate("productosUser") },
-                onNavigationToPedidos = { navController.navigate("pedidosYFacturas") },
-                onNavigationToConfiguracion = { navController.navigate("configuracionScreen") },
-                onNavigationToSobreNosotros = { navController.navigate("sobreNosotrosScreen") },
-                onLogout = onLogout,
+                titulo = "Pedidos Empresa",
                 mostrarCarrito = true,
-                onAbrirCarrito = { mostrarCarritoLateral = true },
-                mostrarBotonEditar = false,
-                onEditarPerfil = { navController.navigate("editarPerfilScreen") },
-                onNavigationToFaq = { navController.navigate("faqScreen") }
+                onAbrirCarrito = {mostrarCarritoLateral = true},
+                onLogout = onLogout,
+
+                onNavigateHomeEmpresa = { navController.navigate("homeEmpresaScreen/$empresaId") },
+
+                onNavigateEmpresaProductos = { navController.navigate("productosEmpresaScreen/$empresaId") },
+
+                onNavigateEmpresaPedidos = {
+                    navController.navigate("pedidosYFacturasEmpresas/$empresaId")
+                },
+
+                onNavigateEmpresaPerfil = { navController.navigate("perfilEmpresaScreen/$empresaId") },
+
+                onNavigateEmpresaConfig = { navController.navigate("configEmpresaScreen/$empresaId") },
+
+                onNavigateEmpresaSobreNosotros = { navController.navigate("sobreNosotrosEmpresaScreen/$empresaId") },
+                onNavigationToFaqEmpresa = { navController.navigate("FaqEmpresaScreen/$empresaId")}
+
             )
         }
     ) { padding ->

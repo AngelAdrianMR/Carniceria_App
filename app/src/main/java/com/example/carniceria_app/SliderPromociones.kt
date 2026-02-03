@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CardDefaults
 import androidx.compose.ui.layout.ContentScale
 import com.carniceria.shared.shared.models.utils.Product
 import com.carniceria.shared.shared.models.utils.Promocion
@@ -42,7 +43,10 @@ fun SliderPromociones(
                     .wrapContentHeight()
                     // 👇 ahora al tocar la tarjeta completa abre la promo
                     .clickable { onPromoClick(promo) },
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     Image(
