@@ -13,6 +13,7 @@ import com.carniceria.shared.shared.models.utils.ProductEmpresa
 import com.carniceria.shared.shared.models.utils.PromocionConProductos
 import com.carniceria.shared.shared.models.utils.SupabaseProvider
 import com.carniceria.shared.shared.models.utils.SupabaseService
+import com.carniceria.shared.shared.models.utils.obtenerPerfilUsuarioActual
 import io.github.jan.supabase.auth.auth
 
 class CarritoViewModel(
@@ -30,16 +31,11 @@ class CarritoViewModel(
     var direccionSeleccionadaTexto by mutableStateOf<String?>(null)
     var tituloDireccionSeleccionada by mutableStateOf<String?>(null)
 
-    /**
-     * Añade un producto al carrito sin modificar stock todavía.
-     * El stock se descuenta solo cuando se confirma el pedido.
-     */
     fun agregarAlCarrito(
         producto: Product,
         cantidad: Double,
         mensaje: String? = null,
     ): Boolean {
-        // Validar cantidad mínima si el producto se vende por kilos
         if (producto.unidad_medida.equals("Kilo", ignoreCase = true) && cantidad < 0.5) {
             println("❌ No se puede añadir menos de 0.5 kg del producto ${producto.nombre_producto}")
             return false
@@ -96,7 +92,7 @@ class CarritoViewModel(
         }
 
         guardarCarritoLocal(context)
-        carrito = carrito.toMutableStateList() // refrescar Compose
+        carrito = carrito.toMutableStateList()
     }
 
     fun agregarPromocionAlCarrito(promocionConProductos: PromocionConProductos, context: Context): Boolean {
@@ -104,7 +100,7 @@ class CarritoViewModel(
         val precioSinIva = promo.precio_total?.div(1.21) ?: 0.0
 
         val productoPromo = Product(
-            id = null, // no usamos id_producto porque es promo
+            id = null,
             nombre_producto = "Promo: ${promo.nombre_promocion}",
             descripcion_producto = promo.descripcion_promocion,
             imagen_producto = promo.imagen_promocion,
@@ -134,17 +130,17 @@ class CarritoViewModel(
         return confirmarPedido(usuarioId, "Envio", context)
     }
 
-    suspend fun confirmarPedido(usuarioId: String?, tipoEntrega: String, context: Context): Long? {
+    suspend fun confirmarPedido(
+        usuarioId: String?,
+        tipoEntrega: String,
+        context: Context
+    ): Long? {
         return try {
             val usuarioIdReal = SupabaseProvider.client.auth.currentSessionOrNull()?.user?.id
             if (usuarioIdReal == null) {
                 println("❌ No hay usuario autenticado")
                 return null
             }
-
-            // Nota: ahora mismo solo “guardamos” la dirección seleccionada en el ViewModel.
-            // Para persistirla en Supabase, hay que añadir campos al insert del pedido en SupabaseService.
-            println("📦 Pedido tipo=$tipoEntrega | Dir=${tituloDireccionSeleccionada} | CP=${codigoPostalSeleccionado}")
 
             val pedidoId = supabaseService.crearPedidoConDescuento(
                 usuarioIdReal,
@@ -154,12 +150,19 @@ class CarritoViewModel(
                 descuentoAplicado
             )
 
-            println("✅ Pedido creado con ID $pedidoId y tipo $tipoEntrega")
-
             if (pedidoId != null) {
+                // ✅ Detectar automáticamente empresa/cliente desde PerfilUsuario
+                val perfil = runCatching { obtenerPerfilUsuarioActual() }.getOrNull()
+
+                val rol = perfil?.rol?.lowercase() // "empresa" o "cliente"
+                val nombre = perfil?.nombre_completo?.takeIf { it.isNotBlank() }
+
+                val sujeto = if (rol == "empresa") "Empresa" else "Cliente"
+                val sujetoConNombre = if (nombre != null) "$sujeto ($nombre)" else sujeto
+
                 notificarAdmins(
                     titulo = "Nuevo pedido recibido 🛒",
-                    cuerpo = "Un cliente ha realizado un nuevo pedido (#$pedidoId y tipo $tipoEntrega)."
+                    cuerpo = "$sujetoConNombre ha realizado un nuevo pedido (#$pedidoId y tipo $tipoEntrega)."
                 )
             }
 
@@ -167,12 +170,10 @@ class CarritoViewModel(
             carrito.clear()
             guardarCarritoLocal(context)
 
-            // reset dirección seleccionada
+            // reset dirección + descuento
             codigoPostalSeleccionado = null
             direccionSeleccionadaTexto = null
             tituloDireccionSeleccionada = null
-
-            // reset descuento
             codigoDescuento = null
             descuentoAplicado = 0.0
 
@@ -202,9 +203,6 @@ class CarritoViewModel(
         }
     }
 
-    // ============================================================
-    // 🏢 Soporte para productos de empresa
-    // ============================================================
     fun agregarProductoEmpresaAlCarrito(
         producto: ProductEmpresa,
         cantidad: Double,

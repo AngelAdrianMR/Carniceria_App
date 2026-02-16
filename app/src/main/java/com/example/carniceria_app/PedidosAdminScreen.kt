@@ -25,203 +25,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.navigation.NavHostController
-/**
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun PedidosAdminScreen(
-    navController: NavHostController,
-    viewModel: PedidosAdminViewModel = viewModel(),
-    onLogout: () -> Unit
-) {
-    val scope = rememberCoroutineScope()
-    val pedidos by viewModel.pedidos.collectAsState()
-    val cargandoPedidos by viewModel.cargandoPedidos.collectAsState()
-
-    Scaffold(
-        topBar = {
-            // 🧱 Usamos aquí la nueva barra admin reutilizable
-            UpBarAdmin(
-                navController = navController,
-                titulo = "Panel de Administración",
-                onLogout = onLogout
-            )
-        }
-    ) { padding ->
-
-        // ✅ Spinner mientras carga
-        if (pedidos.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) {
-                CircularProgressIndicator() // 🔄 Indicador de carga
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize()
-            ) {
-                val pedidosVisibles = pedidos.filter {
-                    it.pedido.estado != "entregado" && it.pedido.estado != "rechazado"
-                }
-
-                items(pedidosVisibles) { pedidoDetalle ->
-                    val pedido = pedidoDetalle
-                    val usuario = pedidoDetalle.usuario
-
-                    Card(
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .fillMaxWidth()
-                    ) {
-                        Column(Modifier.padding(12.dp)) {
-
-                            val estaCargando = cargandoPedidos.contains(pedido.pedido.id)
-
-                            if (estaCargando) {
-                                // 🔄 Mostrar spinner dentro de la tarjeta
-                                Box(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .height(80.dp),
-                                    contentAlignment = androidx.compose.ui.Alignment.Center
-                                ) {
-                                    CircularProgressIndicator()
-                                }
-                            } else {
-                                // 🧾 Contenido normal del pedido
-                                Text("Pedido #${pedido.pedido.id}", style = MaterialTheme.typography.titleMedium)
-                                Text("Estado: ${pedido.pedido.estado}")
-                                Text("Total original: ${"%.2f".format(pedido.pedido.total)} €")
-
-                                if (!pedido.pedido.codigo_descuento_aplicado.isNullOrEmpty()) {
-                                    Text("Código aplicado: ${pedido.pedido.codigo_descuento_aplicado}")
-                                }
-
-                                if ((pedido.pedido.descuento_aplicado ?: 0.0) > 0.0) {
-                                    Text(
-                                        "Descuento: -${"%.2f".format(pedido.pedido.descuento_aplicado!!)} €",
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-
-                                if ((pedido.pedido.total_con_descuento ?: pedido.pedido.total) != pedido.pedido.total) {
-                                    Text(
-                                        "Total con descuento: ${"%.2f".format(pedido.pedido.total_con_descuento!!)} €",
-                                        style = MaterialTheme.typography.titleMedium
-                                    )
-                                }
-
-                                usuario?.let {
-                                    Spacer(Modifier.height(6.dp))
-                                    Text("Tipo de entrega: ${pedido.pedido.tipo_entrega}")
-                                    Text("Usuario: ${it.id}")
-                                    Text("Teléfono: ${it.telefono}")
-                                    Text("Dirección: ${it.direccionCompleta}")
-                                }
-
-                                Spacer(Modifier.height(8.dp))
-
-                                pedidoDetalle.lineas?.forEach { linea ->
-                                    when {
-                                        linea.producto != null -> {
-                                            Text("- ${linea.producto!!.nombre_producto} x${linea.cantidad} - ${linea.precio_unitario}€")
-                                            linea.mensaje?.takeIf { it.isNotBlank() }?.let { mensaje ->
-                                                Text(
-                                                    "   Nota: $mensaje",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                                )
-                                            }
-                                        }
-
-                                        linea.promocion != null -> {
-                                            Text("Promoción: ${linea.promocion!!.promocion.nombre_promocion} x${linea.cantidad} - ${linea.precio_unitario}€")
-                                            linea.promocion!!.productos.forEach { prodPromo ->
-                                                Text(
-                                                    "   - ${prodPromo.nombre_producto}",
-                                                    style = MaterialTheme.typography.bodySmall
-                                                )
-                                            }
-                                        }
-
-                                        else -> Text("Item desconocido")
-                                    }
-                                }
-
-                                Spacer(Modifier.height(12.dp))
-
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    when (pedido.pedido.estado) {
-                                        "pendiente" -> {
-                                            OutlinedButton(onClick = {
-                                                scope.launch { viewModel.cambiarEstadoPedido(pedido.pedido.id, "aceptado") }
-                                            }) { Text("Aceptar") }
-
-                                            OutlinedButton(onClick = {
-                                                scope.launch { viewModel.cambiarEstadoPedido(pedido.pedido.id, "rechazado") }
-                                            }) { Text("Rechazar") }
-                                        }
-
-                                        "aceptado" -> {
-                                            OutlinedButton(onClick = {
-                                                scope.launch { viewModel.cambiarEstadoPedido(pedido.pedido.id, "enviado") }
-                                            }) { Text("Marcar enviado") }
-
-                                            OutlinedButton(onClick = {
-                                                scope.launch { viewModel.cambiarEstadoPedido(pedido.pedido.id, "pendiente") }
-                                            }) { Text("Volver a pendiente") }
-                                        }
-
-                                        "enviado" -> {
-                                            OutlinedButton(onClick = {
-                                                scope.launch { viewModel.cambiarEstadoPedido(pedido.pedido.id, "entregado") }
-                                            }) { Text("Entregado") }
-
-                                            OutlinedButton(onClick = {
-                                                scope.launch { viewModel.cambiarEstadoPedido(pedido.pedido.id, "pendiente") }
-                                            }) { Text("Volver a pendiente") }
-
-                                            OutlinedButton(onClick = {
-                                                scope.launch { viewModel.cambiarEstadoPedido(pedido.pedido.id, "no_entregado") }
-                                            }) { Text("No entregado") }
-                                        }
-
-                                        "entregado" -> {
-                                            Text("✅ Pedido entregado")
-                                            pedidoDetalle.factura?.let { factura ->
-                                                if (!factura.pdf_url.isNullOrEmpty()) {
-                                                    OutlinedButton(onClick = {
-                                                        val intent = android.content.Intent(
-                                                            android.content.Intent.ACTION_VIEW,
-                                                            android.net.Uri.parse(factura.pdf_url)
-                                                        )
-                                                        navController.context.startActivity(intent)
-                                                    }) {
-                                                        Text("Ver Factura PDF")
-                                                    }
-                                                } else {
-                                                    Text("⚠️ Factura aún sin PDF")
-                                                }
-                                            } ?: Text("⚠️ Pedido sin factura asociada")
-                                        }
-
-                                        else -> Text("⚠️ Estado: ${pedido.pedido.estado}")
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                }
-            }
-        }
-    }
-}
-**/
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -250,9 +53,7 @@ fun PedidosAdminScreen(
                 .padding(padding)
         ) {
 
-            // ------------------------
             // CARGA
-            // ------------------------
             if (pedidos.isEmpty()) {
                 Box(
                     Modifier.fillMaxSize(),
@@ -263,9 +64,7 @@ fun PedidosAdminScreen(
                 return@Column
             }
 
-            // ------------------------
             // FILTRAR: NO mostrar entregados / rechazados
-            // ------------------------
             val pedidosVisibles = pedidos.filter {
                 it.pedido.estado !in listOf("entregado", "rechazado")
             }
@@ -323,9 +122,7 @@ fun PedidoCardAdmin(
 
         Column(modifier = Modifier.padding(16.dp)) {
 
-            // ------------------------
             // CABECERA
-            // ------------------------
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -356,9 +153,7 @@ fun PedidoCardAdmin(
             Divider()
             Spacer(Modifier.height(8.dp))
 
-            // ------------------------
             // DATOS PRINCIPALES
-            // ------------------------
             Text(
                 "Total: ${"%.2f".format(pedido.pedido.total ?: 0.0)} €",
                 style = MaterialTheme.typography.bodyLarge,
@@ -380,21 +175,21 @@ fun PedidoCardAdmin(
                     fontWeight = FontWeight.Bold
                 )
 
-            // ------------------------
             // INFO DE ENVÍO Y USUARIO
-            // ------------------------
-            pedido.usuario?.let {
+            pedido.usuario?.let { u ->
                 Spacer(Modifier.height(8.dp))
                 Text("Tipo entrega: ${pedido.pedido.tipo_entrega}")
-                Text("Contacto: ${it.telefono}")
-                Text("Dirección: ${it.direccionCompleta}")
+                Text(
+                    text = "Nombre: ${u.nombre_completo ?: "Sin nombre"}",
+                )
+                Text("Rol: ${u.rol}")
+                Text("Contacto: ${u.telefono}")
+                Text("Dirección: ${u.direccionCompleta}")
             }
 
             Spacer(Modifier.height(12.dp))
 
-            // ------------------------
             // PRODUCTOS
-            // ------------------------
             Text("🧺 Productos:", fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(4.dp))
 
@@ -422,9 +217,7 @@ fun PedidoCardAdmin(
 
             Spacer(Modifier.height(12.dp))
 
-            // ------------------------
             // ACCIONES ADMIN
-            // ------------------------
             if (estaCargando) {
                 Box(
                     Modifier

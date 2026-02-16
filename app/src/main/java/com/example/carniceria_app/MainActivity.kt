@@ -714,8 +714,8 @@ fun LoadingScreen() {
     }
 }
 
-private val BotonMinHeight = 56.dp
-private val BotonPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+private val BotonMinHeight = 42.dp
+private val BotonPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
 
 // Botón reutilizable
 @Composable
@@ -732,8 +732,8 @@ fun BotonTransparenteNegro(
         shape = MaterialTheme.shapes.medium,
         contentPadding = BotonPadding,
         colors = ButtonDefaults.buttonColors(
-            containerColor = brown,
-            contentColor = colors.onPrimary
+            containerColor = colors.error,
+            contentColor = colors.onSecondary
         )
     ) {
         Text(
@@ -760,8 +760,8 @@ fun BotonAñadir(
         shape = MaterialTheme.shapes.medium,
         contentPadding = BotonPadding,
         colors = ButtonDefaults.buttonColors(
-            containerColor = DarkGreen,
-            contentColor = colors.onPrimary
+            containerColor = colors.error,
+            contentColor = colors.onSecondary
         )
     ) {
         Text(
@@ -788,7 +788,7 @@ fun BotonRojo(
         contentPadding = BotonPadding,
         colors = ButtonDefaults.buttonColors(
             containerColor = DarkRed,
-            contentColor = colors.onPrimary
+            contentColor = colors.onSecondary
         )
     ) {
         Text(

@@ -34,49 +34,51 @@ fun GridProductos(productos: List<Product>,
             Card(
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
                 modifier = Modifier
-                    .padding(6.dp)
-                    .fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    .padding(2.dp)
+                    .fillMaxWidth()
+                    .height(220.dp) // <-- ajusta este valor
             ) {
                 Column(
                     modifier = Modifier
-                        .padding(8.dp)
-                        .fillMaxWidth(),
-                    verticalArrangement = Arrangement.Center
+                        .padding(2.dp)
+                        .fillMaxSize(), // <-- importante para repartir bien el espacio
+                    verticalArrangement = Arrangement.SpaceBetween // <-- empuja botón abajo
                 ) {
-                    Image(
-                        painter = rememberAsyncImagePainter(producto.imagen_producto ?: ""),
-                        contentDescription = producto.nombre_producto,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onProductoClick(producto) }
-                    )
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Image(
+                            painter = rememberAsyncImagePainter(producto.imagen_producto ?: ""),
+                            contentDescription = producto.nombre_producto,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onProductoClick(producto) }
+                        )
 
-                    Text(
-                        producto.nombre_producto,
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                        Spacer(Modifier.height(4.dp))
 
-                    Text(
-                        text = "${producto.precio_venta} € / ${producto.unidad_medida}",
-                        style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                        Text(
+                            producto.nombre_producto,
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "${producto.precio_venta} € / ${producto.unidad_medida}",
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
 
                     BotonTransparenteNegro(
                         onClick = { onAddClick(producto) },

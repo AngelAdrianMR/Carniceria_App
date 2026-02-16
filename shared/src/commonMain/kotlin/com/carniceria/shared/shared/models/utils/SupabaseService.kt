@@ -655,7 +655,68 @@ class SupabaseService(private val supabase: SupabaseClient) {
         }
     }
 
+    @OptIn(InternalAPI::class)
+    suspend fun adminUserAction(userId: String, action: String): Boolean {
+        return try {
+            val res = SupabaseProvider.adminClient.functions.invoke("admin-user-action") {
+                headers["Content-Type"] = "application/json"
+                body = """{"userId":"$userId","action":"$action"}"""
+            }
+
+            // Si quieres “hard fail” por status:
+            if (!res.status.isSuccess()) {
+                return false
+            }
+
+            // Opcional: validar el ok del JSON
+            val bodyStr = res.bodyAsText()
+            val json = Json.parseToJsonElement(bodyStr).jsonObject
+            val ok = json["ok"]?.jsonPrimitive?.booleanOrNull ?: true
+
+            ok
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun banUser(userId: String) = adminUserAction(userId, "ban")
+    suspend fun unbanUser(userId: String) = adminUserAction(userId, "unban")
+    suspend fun deleteUser(userId: String) = adminUserAction(userId, "delete")
+
+    @OptIn(InternalAPI::class)
+    suspend fun isUserBanned(userId: String): Boolean {
+        return try {
+            val res = SupabaseProvider.adminClient.functions.invoke("admin-user-action") {
+                headers["Content-Type"] = "application/json"
+                body = """{"userId":"$userId","action":"status"}"""
+            }
+
+            if (!res.status.isSuccess()) return false
+
+            val bodyStr = res.bodyAsText()
+            val json = Json.parseToJsonElement(bodyStr).jsonObject
+            json["banned"]?.jsonPrimitive?.booleanOrNull ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    suspend fun setPerfilBloqueado(userId: String, bloqueado: Boolean): Boolean {
+        return try {
+            // OJO: usa adminClient si tu RLS no deja actualizar perfiles de otros usuarios
+            SupabaseProvider.adminClient.postgrest["perfil_usuario"]
+                .update(
+                    {
+                        set("bloqueado", bloqueado)
+                    }
+                ) {
+                    filter { eq("id", userId) }
+                }
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
 
 }
-
-

@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -20,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -56,13 +58,21 @@ fun UserHeader(
         title = { Text(titulo) },
         navigationIcon = {
             IconButton(onClick = { mostrarMenuLateral = true }) {
-                Icon(Icons.Default.Menu, contentDescription = "Abrir menú")
+                Icon(
+                    Icons.Default.Menu,
+                    contentDescription = "Abrir menú",
+                    tint = MaterialTheme.colorScheme.error
+                )
             }
         },
         actions = {
             if (mostrarCarrito && onAbrirCarrito != null) {
                 IconButton(onClick = onAbrirCarrito) {
-                    Icon(Icons.Default.ShoppingCart, contentDescription = "Carrito")
+                    Icon(
+                        Icons.Default.ShoppingCart,
+                        contentDescription = "Carrito",
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
             }
             if (mostrarBotonEditar && onEditarPerfil != null) {
@@ -134,9 +144,6 @@ fun UserHeader(
                     BotonMenuLateral("ℹ️ Sobre Nosotros") {
                         onNavigationToSobreNosotros(); mostrarMenuLateral = false
                     }
-                    BotonMenuLateral("❓ Preguntas frecuentes") {
-                        onNavigationToFaq(); mostrarMenuLateral = false
-                    }
 
                     Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
 
@@ -179,22 +186,25 @@ fun UserHeader(
 @Composable
 private fun BotonMenuLateral(
     texto: String,
-    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
     onClick: () -> Unit
 ) {
-    Button(
+    OutlinedButton(
         onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.secondary,
-            contentColor = MaterialTheme.colorScheme.onSecondary
-        ),
-        shape = MaterialTheme.shapes.medium,
-        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .height(45.dp)
+            .height(45.dp),
+        shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, Color.Black),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color.Transparent,
+            contentColor = Color.Black
+        )
     ) {
-        Text(texto, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = texto,
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.Black
+        )
     }
 }
 
@@ -207,7 +217,7 @@ private fun BotonMenuRojo(
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
-            containerColor = DarkRed,
+            containerColor = MaterialTheme.colorScheme.error,
             contentColor = MaterialTheme.colorScheme.onSecondary
         ),
         shape = MaterialTheme.shapes.medium,

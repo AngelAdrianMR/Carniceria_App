@@ -112,6 +112,14 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun clearSession() {
+        prefs.edit()
+            .remove("access_token")
+            .apply()
+
+        _usuario.value = null
+    }
+
     fun loadLastEmail() {
         _savedEmail.value = prefs.getString(KEY_EMAIL, "") ?: ""
     }

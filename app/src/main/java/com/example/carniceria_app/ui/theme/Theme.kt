@@ -5,42 +5,39 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// 🌞 MODO CLARO
+// MODO CLARO
 private val LightColorScheme = lightColorScheme(
-    // Acción principal (botones, top bar…)
-    primary = Color(0xFF1976D2),
+    primary = Color(0xFF000000),
     onPrimary = Color.White,
 
-    // Acción secundaria / estados OK
-    secondary = Color(0xFF2E7D32),
+    secondary = Color(0xFF3F3F3F),
     onSecondary = Color.White,
 
-    // Rojo para errores y botones destructivos
-    error = Color(0xFFC62828),
+    error = Color(0xFFBE2323),
     onError = Color.White,
 
-    // Fondos y texto
-    background = Color(0xFFF7F9FC),
+    // ✅ Fondo general: blanco puro
+    background = Color(0xFFFFFFFF),
     onBackground = Color(0xFF111111),
 
-    // Tarjetas / cards normales
-    surface = Color.White,
+    // ✅ Superficies principales (cards): blanco
+    surface = Color(0xFFFFFFFF),
     onSurface = Color(0xFF111111),
 
-    // 👉 Paneles / bloques (como los que ves en el screenshot)
-    surfaceVariant = Color(0xFFE3ECF9),      // azulito muy suave
+    // ✅ “Cajas / bloques”: gris claro (en vez de azulito)
+    surfaceVariant = Color(0xFFFFFFFF),      // o #F5F5F5 si lo quieres aún más suave
     onSurfaceVariant = Color(0xFF111111)
 )
 
-// 🌙 MODO OSCURO
+// MODO OSCURO
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF90CAF9),
+    primary = Color(0xFFFFFFFF),
     onPrimary = Color(0xFF021019),
 
-    secondary = Color(0xFFA5D6A7),
-    onSecondary = Color(0xFF06120A),
+    secondary = Color(0xFFA20B0B),
+    onSecondary = Color(0xFFFDFDFD),
 
-    error = Color(0xFFEF9A9A),
+    error = Color(0xFF7A0E0E),
     onError = Color(0xFF3B0000),
 
     background = Color(0xFF050608),

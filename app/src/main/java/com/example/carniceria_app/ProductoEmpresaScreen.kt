@@ -220,7 +220,7 @@ fun ProductosEmpresaScreen(
                 GridProductosEmpresa(
                     productos = productosFiltrados,
                     onProductoClick = { prod ->
-                        navController.navigate("productoDetalle/${prod.id}")
+                        navController.navigate("productoDetalle/${prod.id}?empresaId=$empresaId")
                     },
                     onAddClick = { prod ->
                         productoSeleccionado = prod

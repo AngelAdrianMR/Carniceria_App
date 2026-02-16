@@ -15,6 +15,7 @@ import coil.compose.rememberAsyncImagePainter
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CardDefaults
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import com.carniceria.shared.shared.models.utils.Product
 import com.carniceria.shared.shared.models.utils.Promocion
@@ -31,19 +32,29 @@ fun SliderPromociones(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
+            .padding(4.dp)
     ) {
         items(promociones) { promoConProductos ->
             val promo = promoConProductos.promocion
             println("Promos obtenidas: $promo")
 
+            val shadowColor = MaterialTheme.colorScheme.error
+
             Card(
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 modifier = Modifier
                     .width(250.dp)
                     .wrapContentHeight()
-                    // 👇 ahora al tocar la tarjeta completa abre la promo
-                    .clickable { onPromoClick(promo) },
-                shape = RoundedCornerShape(12.dp),
+                    .shadow(
+                        elevation = 10.dp,
+                        shape = RoundedCornerShape(12.dp),
+                        ambientColor = shadowColor.copy(alpha = 0.9f),
+                        spotColor = shadowColor.copy(alpha = 1.4f),
+                        clip = false
+                    )
+                    .clickable { onPromoClick(promo) }
+                    .padding(8.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant
                 )
@@ -74,7 +85,7 @@ fun SliderPromociones(
 
                     BotonTransparenteNegro(
                         onClick = { onAddPromocion(promoConProductos) },
-                        texto = "Añadir al carrito"
+                        texto = "+🛒"
                     )
                 }
             }

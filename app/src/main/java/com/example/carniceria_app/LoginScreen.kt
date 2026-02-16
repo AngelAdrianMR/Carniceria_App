@@ -19,8 +19,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.carniceria.shared.shared.models.utils.SupabaseProvider
+import com.carniceria.shared.shared.models.utils.obtenerPerfilUsuarioActual
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.exceptions.RestException
@@ -45,7 +45,7 @@ fun LoginScreen(
     val savedEmail by authViewModel.savedEmail.collectAsState()
 
     LaunchedEffect(Unit) {
-        authViewModel.loadLastEmail()          // nuevo método del ViewModel
+        authViewModel.loadLastEmail()
         if (email.isBlank()) email = savedEmail
     }
 
@@ -58,9 +58,7 @@ fun LoginScreen(
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            ),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
             shape = MaterialTheme.shapes.medium
         ) {
@@ -82,7 +80,7 @@ fun LoginScreen(
                     value = email,
                     onValueChange = {
                         email = it
-                        authViewModel.saveLastEmail(it)   // ✅ guarda siempre, sin checkbox
+                        authViewModel.saveLastEmail(it)
                     },
                     label = { Text("Correo electrónico") },
                     singleLine = true,
@@ -106,7 +104,6 @@ fun LoginScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // ✅ Checkbox "Recuérdame"
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
@@ -118,7 +115,6 @@ fun LoginScreen(
                     Text("Recuérdame", style = MaterialTheme.typography.bodyMedium)
                 }
 
-                // 🔴 Mensaje de error
                 if (errorMessage.isNotEmpty()) {
                     Text(
                         text = errorMessage,
@@ -129,20 +125,34 @@ fun LoginScreen(
                     )
                 }
 
-                // 🖤 Botón principal (sigue usando tu componente negro)
                 BotonTransparenteNegro(
                     onClick = {
                         errorMessage = ""
                         loading = true
+
                         scope.launch {
                             try {
                                 authViewModel.saveLastEmail(email)
 
+                                // 1) Login Auth
                                 SupabaseProvider.client.auth.signInWith(Email) {
                                     this.email = email
                                     this.password = password
                                 }
 
+                                // 2) Traer perfil y cortar si está bloqueado
+                                val perfil = obtenerPerfilUsuarioActual()
+                                val estaBloqueado = perfil?.bloqueado == true
+
+                                if (estaBloqueado) {
+                                    SupabaseProvider.client.auth.signOut()
+                                    authViewModel.setRememberMe(false)
+
+                                    errorMessage = "Tu cuenta está bloqueada. Contacta con soporte."
+                                    return@launch
+                                }
+
+                                // 3) Normal
                                 val session = SupabaseProvider.client.auth.currentSessionOrNull()
                                 val idUsuario = session?.user?.id
 
@@ -151,15 +161,10 @@ fun LoginScreen(
                                     println("✅ Token FCM guardado para usuario: $idUsuario")
                                 }
 
-                                // Guardar sesión si rememberMe está activo
                                 authViewModel.saveSession()
                                 authViewModel.cargarUsuario()
 
-                                Toast.makeText(
-                                    context,
-                                    "Inicio de sesión exitoso",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                Toast.makeText(context, "Inicio de sesión exitoso", Toast.LENGTH_SHORT).show()
                                 onLoginSuccess()
 
                             } catch (e: RestException) {
@@ -167,7 +172,7 @@ fun LoginScreen(
                                     400, 401 -> "Usuario o contraseña incorrectos"
                                     else -> "Error interno. Contacta con soporte."
                                 }
-                            } catch (e: Exception) {
+                            } catch (_: Exception) {
                                 errorMessage = "Error de conexión. Inténtalo más tarde."
                             } finally {
                                 loading = false
@@ -175,17 +180,13 @@ fun LoginScreen(
                         }
                     },
                     texto = if (loading) "Cargando..." else "Entrar",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
                 )
 
-                // 🔹 Registro
                 TextButton(onClick = onNavigateToRegister) {
                     Text("¿No tienes cuenta? Regístrate")
                 }
 
-                // 🔹 Recuperar contraseña
                 TextButton(
                     onClick = {
                         if (email.isNotEmpty()) {
@@ -196,10 +197,9 @@ fun LoginScreen(
                                         redirectUrl = "myapp://auth-callback"
                                     )
                                     errorMessage =
-                                        "Asegurate de desmarcar la casilla \"Recuerdame\". Busque en su bandeja de entrada o en spam \"Supabase Auth\" y haga click en el enlace."
-                                } catch (e: Exception) {
-                                    errorMessage =
-                                        "Error al enviar el correo. Inténtalo más tarde."
+                                        "Asegurate de desmarcar la casilla \"Recuerdame\". Busca \"Supabase Auth\" en tu correo (o spam) y abre el enlace."
+                                } catch (_: Exception) {
+                                    errorMessage = "Error al enviar el correo. Inténtalo más tarde."
                                 }
                             }
                         } else {

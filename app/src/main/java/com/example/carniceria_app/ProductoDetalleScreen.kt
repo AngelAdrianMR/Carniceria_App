@@ -10,11 +10,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import com.carniceria.shared.shared.models.utils.Product
 import com.carniceria.shared.shared.models.utils.ComentarioConUsuario
+import com.carniceria.shared.shared.models.utils.Product
 import com.carniceria.shared.shared.models.utils.ProductEmpresa
 import com.carniceria.shared.shared.models.utils.SupabaseService
 import kotlinx.coroutines.launch
@@ -28,12 +30,17 @@ fun ProductoDetalleScreen(
     service: SupabaseService,
     empresaId: Long? = null
 ) {
+    val carritoViewModel: CarritoViewModel = viewModel()
+    val context = LocalContext.current
+
     var producto by remember { mutableStateOf<Product?>(null) }
-    var precioEmpresa by remember { mutableStateOf<Double?>(null) }
+    var productoEmpresa by remember { mutableStateOf<ProductEmpresa?>(null) }
+
     var comentarios by remember { mutableStateOf<List<ComentarioConUsuario>>(emptyList()) }
     var nuevoComentario by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
-    var productoEmpresa by remember { mutableStateOf<ProductEmpresa?>(null) }
+
+    var mostrarCantidadBottomSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(productoId, empresaId) {
         scope.launch {
@@ -44,6 +51,9 @@ fun ProductoDetalleScreen(
                 productoEmpresa = if (empresaId != null) {
                     service.obtenerProductoEmpresaPorId(empresaId, productoId)
                 } else null
+
+                // (opcional) cargar carrito local si lo necesitas aquí
+                carritoViewModel.cargarCarritoLocal(context)
 
             } catch (e: Exception) {
                 Log.e("ProductoDetalleScreen", "❌ Error cargando datos", e)
@@ -74,6 +84,10 @@ fun ProductoDetalleScreen(
                 CircularProgressIndicator()
             }
         } else {
+
+            // ✅ precio efectivo: el que ve el usuario (empresa o normal)
+            val precioMostrado = productoEmpresa?.precio_final ?: producto!!.precio_venta
+
             Column(
                 modifier = Modifier
                     .padding(padding)
@@ -94,8 +108,18 @@ fun ProductoDetalleScreen(
                 Spacer(Modifier.height(8.dp))
                 Text(producto!!.descripcion_producto ?: "Sin descripción")
                 Spacer(Modifier.height(8.dp))
-                val precioMostrado = productoEmpresa?.precio_final ?: producto!!.precio_venta
+
                 Text("💶 Precio: ${"%.2f".format(precioMostrado)} €")
+
+                Spacer(Modifier.height(12.dp))
+
+                // ✅ Botón añadir al carrito (abre el bottomsheet)
+                BotonTransparenteNegro(
+                    onClick = { mostrarCantidadBottomSheet = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    texto = "➕ Añadir al carrito"
+                )
+
                 Spacer(Modifier.height(16.dp))
 
                 Divider(thickness = 1.dp)
@@ -115,7 +139,9 @@ fun ProductoDetalleScreen(
                     items(comentarios) { comentario ->
                         Card(
                             modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
                         ) {
                             Column(Modifier.padding(12.dp)) {
                                 Text(
@@ -162,7 +188,7 @@ fun ProductoDetalleScreen(
                                 )
 
                                 if (nuevo != null) {
-                                    comentarios = listOf(nuevo) + comentarios // 👈 se añade arriba
+                                    comentarios = listOf(nuevo) + comentarios
                                     nuevoComentario = ""
 
                                     notificarAdmins(
@@ -176,6 +202,35 @@ fun ProductoDetalleScreen(
                     modifier = Modifier.fillMaxWidth(),
                     texto = "💬 Añadir comentario"
                 )
+            }
+
+            // ✅ BottomSheet de cantidad: usa el modelo correcto según empresa o normal
+            if (mostrarCantidadBottomSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { mostrarCantidadBottomSheet = false }
+                ) {
+                    if (empresaId != null && productoEmpresa != null) {
+                        // 🏢 EMPRESA: usa ProductEmpresa (ya trae precio_final)
+                        SeleccionCantidadBottomSheet(
+                            productoEmpresa = productoEmpresa!!,
+                            onDismiss = { mostrarCantidadBottomSheet = false },
+                            onConfirmar = {
+                                // Si tu bottomsheet YA añade al carrito, esto basta
+                                mostrarCantidadBottomSheet = false
+                            }
+                        )
+                    } else {
+                        // 👤 USUARIO NORMAL: usa Product
+                        SeleccionCantidadBottomSheet(
+                            producto = producto!!,
+                            onDismiss = { mostrarCantidadBottomSheet = false },
+                            onConfirmar = {
+                                // Si tu bottomsheet YA añade al carrito, esto basta
+                                mostrarCantidadBottomSheet = false
+                            }
+                        )
+                    }
+                }
             }
         }
     }

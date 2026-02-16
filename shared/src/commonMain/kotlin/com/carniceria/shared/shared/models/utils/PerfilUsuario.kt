@@ -65,9 +65,8 @@ data class PerfilUsuario(
     val fcm_token: String? = null,
     val empresa_id: Long? = null,
     @SerialName("direcciones_envio")
-    val direcciones_envio: List<DireccionEnvioExtra> = emptyList()
-
-
+    val direcciones_envio: List<DireccionEnvioExtra> = emptyList(),
+    val bloqueado: Boolean? = false
 ) {
     val direccionCompleta: String
         get() = getDireccionCompleta(calle, piso, localidad, provincia, pais)
@@ -86,7 +85,8 @@ data class UsuarioAdmin(
     val telefono: String,
     val codigo_postal: String,
     val rol: String,
-    val fcm_token: String? = null
+    val fcm_token: String? = null,
+    val bloqueado: Boolean? = null
 ) {
     val direccionCompleta: String
         get() = getDireccionCompleta(calle, piso, localidad, provincia, pais)
@@ -129,7 +129,9 @@ data class EmpresaAdmin(
     val codigo_postal: String? = null,
     val localidad: String? = null,
     val provincia: String? = null,
-    val pais: String? = null
+    val pais: String? = null,
+    val perfil_usuario_id: String? = null,
+    val bloqueado: Boolean? = null
 )
 
 @Serializable

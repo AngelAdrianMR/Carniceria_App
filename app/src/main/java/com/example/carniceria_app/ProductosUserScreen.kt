@@ -4,41 +4,29 @@ import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -51,8 +39,6 @@ import com.carniceria.shared.shared.models.utils.PerfilUsuario
 import com.carniceria.shared.shared.models.utils.Product
 import com.carniceria.shared.shared.models.utils.obtenerPerfilUsuarioActual
 import com.carniceria.shared.shared.models.utils.obtenerProductos
-import com.example.carniceria_app.ui.theme.brown
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,14 +57,10 @@ fun ProductosUserScreen(
 
     var perfilUsuario by remember { mutableStateOf<PerfilUsuario?>(null) }
 
-    // 🎨 Colores adaptativos del tema
+    // Colores adaptativos del tema
     val colors = MaterialTheme.colorScheme
 
-    // Drawer para filtros
-    val scope = rememberCoroutineScope()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-
-    // 🧩 Cargar productos
+    // Cargar productos
     LaunchedEffect(Unit) {
         try {
             perfilUsuario = obtenerPerfilUsuarioActual()
@@ -89,12 +71,18 @@ fun ProductosUserScreen(
         }
     }
 
-    val categorias = productos.mapNotNull { it.categoria_producto }.distinct()
+    // Categorías (limpia nulos/vacíos, distinct)
+    val categorias = productos
+        .mapNotNull { it.categoria_producto?.trim() }
+        .filter { it.isNotEmpty() }
+        .distinct()
+
     var textoBusqueda by remember { mutableStateOf("") }
 
     val productosFiltrados = productos.filter { producto ->
         val coincideCategoria =
             categoriaSeleccionada == null || producto.categoria_producto == categoriaSeleccionada
+
         val coincideBusqueda =
             textoBusqueda.isBlank() ||
                     producto.nombre_producto.contains(textoBusqueda, ignoreCase = true) ||
@@ -103,160 +91,87 @@ fun ProductosUserScreen(
         coincideCategoria && coincideBusqueda
     }
 
-    // ============================================================
-    // 🟦 DRAWER LATERAL — FILTROS
-    // ============================================================
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                drawerContainerColor = colors.surfaceVariant
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        "Filtros",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = colors.primary
-                    )
-
-                    Divider()
-
-                    Text(
-                        "Categorías",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-
-                    categorias.forEach { categoria ->
-                        FilterButton(
-                            categoria = categoria,
-                            seleccionada = categoriaSeleccionada == categoria,
-                            onClick = {
-                                categoriaSeleccionada = categoria
-                                scope.launch { drawerState.close() }
-                            }
-                        )
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    OutlinedButton(
-                        onClick = {
-                            categoriaSeleccionada = null
-                            scope.launch { drawerState.close() }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Limpiar filtros")
-                    }
-                }
-            }
+    // CONTENIDO PRINCIPAL
+    Scaffold(
+        topBar = {
+            UserHeader(
+                navController = navController,
+                titulo = "Productos",
+                onNavigateHome = { navController.navigate("homeUserScreen") },
+                onNavigationToPerfil = { navController.navigate("perfilUser") },
+                onNavigationToProductos = { navController.navigate("productosUser") },
+                onNavigationToPedidos = { navController.navigate("pedidosYFacturas") },
+                onNavigationToConfiguracion = { navController.navigate("configuracionScreen") },
+                onNavigationToSobreNosotros = { navController.navigate("sobreNosotrosScreen") },
+                onLogout = onLogout,
+                mostrarCarrito = true,
+                onAbrirCarrito = { mostrarCarritoLateral = true },
+                mostrarBotonEditar = false,
+                onEditarPerfil = { navController.navigate("editarPerfilScreen") },
+                onNavigationToFaq = { navController.navigate("faqScreen") }
+            )
         }
-    ) {
-        // ============================================================
-        // 🟥 CONTENIDO PRINCIPAL (Scaffold como en Home)
-        // ============================================================
-        Scaffold(
-            topBar = {
-                UserHeader(
-                    navController = navController,
-                    titulo = "Productos",
-                    onNavigateHome = { navController.navigate("homeUserScreen") },
-                    onNavigationToPerfil = { navController.navigate("perfilUser") },
-                    onNavigationToProductos = { navController.navigate("productosUser") },
-                    onNavigationToPedidos = { navController.navigate("pedidosYFacturas") },
-                    onNavigationToConfiguracion = { navController.navigate("configuracionScreen") },
-                    onNavigationToSobreNosotros = { navController.navigate("sobreNosotrosScreen") },
-                    onLogout = onLogout,
-                    mostrarCarrito = true,
-                    onAbrirCarrito = { mostrarCarritoLateral = true },
-                    mostrarBotonEditar = false,
-                    onEditarPerfil = { navController.navigate("editarPerfilScreen") },
-                    onNavigationToFaq = { navController.navigate("faqScreen") }
-                )
+    ) { paddingValues ->
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(colors.background)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+
+            // Barra de búsqueda
+            TextField(
+                value = textoBusqueda,
+                onValueChange = { textoBusqueda = it },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Buscar") },
+                placeholder = { Text("Buscar productos...") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = colors.surfaceVariant,
+                    unfocusedContainerColor = colors.surfaceVariant,
+                    disabledContainerColor = colors.surfaceVariant,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = colors.primary,
+                    focusedTextColor = colors.onSurface,
+                    unfocusedTextColor = colors.onSurface,
+                    focusedPlaceholderColor = colors.onSurface.copy(alpha = 0.5f),
+                    unfocusedPlaceholderColor = colors.onSurface.copy(alpha = 0.5f)
+                ),
+                shape = RoundedCornerShape(50)
+            )
+
+            // FILTRO IGUAL QUE EN HOME ADMIN/USER
+            FiltroCategorias(
+                categorias = categorias
+            ) { nueva ->
+                // Toggle: si pulsas la misma, vuelve a "Todos" (null)
+                categoriaSeleccionada = if (categoriaSeleccionada == nueva) null else nueva
             }
-        ) { paddingValues ->
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .background(colors.background)
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            Spacer(Modifier.height(6.dp))
 
-                // 🔹 Barra de búsqueda
-                TextField(
-                    value = textoBusqueda,
-                    onValueChange = { textoBusqueda = it },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Buscar") },
-                    placeholder = { Text("Buscar productos...") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = colors.surfaceVariant,
-                        unfocusedContainerColor = colors.surfaceVariant,
-                        disabledContainerColor = colors.surfaceVariant,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        cursorColor = colors.primary,
-                        focusedTextColor = colors.onSurface,
-                        unfocusedTextColor = colors.onSurface,
-                        focusedPlaceholderColor = colors.onSurface.copy(alpha = 0.5f),
-                        unfocusedPlaceholderColor = colors.onSurface.copy(alpha = 0.5f)
-                    ),
-                    shape = RoundedCornerShape(50)
-                )
-
-                // 🔹 Botón de filtros (igual que en Home)
-                FilledTonalButton(
-                    onClick = { scope.launch { drawerState.open() } },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = brown,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = "Abrir filtros",
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        text = "Filtros",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                }
-
-                // 🔹 Grid de productos
-                GridProductos(
-                    productosFiltrados,
-                    onAddClick = {
-                        productoSeleccionado = it
-                        mostrarCantidadBottomSheet = true
-                    },
-                    onProductoClick = { producto ->
-                        producto.id?.let { id ->
-                            navController.navigate("productoDetalle/$id")
-                        }
+            // Grid de productos
+            GridProductos(
+                productosFiltrados,
+                onAddClick = {
+                    productoSeleccionado = it
+                    mostrarCantidadBottomSheet = true
+                },
+                onProductoClick = { producto ->
+                    producto.id?.let { id ->
+                        navController.navigate("productoDetalle/$id")
                     }
-                )
-            }
+                }
+            )
         }
     }
 
-    // ============================================================
-    // 🧩 PANEL INFERIOR — Selección de cantidad
-    // ============================================================
+    // PANEL INFERIOR — Selección de cantidad
     if (mostrarCantidadBottomSheet && productoSeleccionado != null) {
         ModalBottomSheet(
             onDismissRequest = {
@@ -278,9 +193,7 @@ fun ProductosUserScreen(
         }
     }
 
-    // ============================================================
-    // 🛒 CARRITO LATERAL
-    // ============================================================
+    // CARRITO LATERAL
     if (mostrarCarritoLateral) {
         perfilUsuario?.let { perfil ->
             CarritoLateral(

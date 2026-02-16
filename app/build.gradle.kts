@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.material)
     implementation(libs.androidx.compose.ui.text)
+    implementation(libs.androidx.foundation)
 
     // Tests
     testImplementation(libs.junit)
